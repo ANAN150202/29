@@ -1,0 +1,84 @@
+/**
+ * Builds the sanitized view each client receives. Rules:
+ *  • A player sees only their own hand; others see hand counts.
+ *  • The undealt deck is never sent.
+ *  • A concealed trump is visible only to the bidder until it is revealed
+ *    (or the round ends).
+ */
+import type { GameView, Seat, TrumpView } from '@shared/types';
+import {
+  canDeclarePair,
+  canRevealTrump,
+  getLegalCards,
+  leadSuit,
+  mustBid,
+  nextMinBid,
+} from './engine';
+import type { GameState } from './state';
+
+export function buildPlayerView(
+  state: GameState,
+  viewer: Seat | null,
+  extras: { turnDeadline?: number | null } = {},
+): GameView {
+  const roundOver = state.phase === 'roundEnd' || state.phase === 'matchEnd';
+  const isBidder = viewer !== null && state.contract?.bidder === viewer;
+  const trumpChosen = state.trumpSuit !== null;
+  const canSeeTrump = trumpChosen && (state.trumpRevealed || isBidder || roundOver);
+
+  const trump: TrumpView = {
+    revealed: state.trumpRevealed || (roundOver && trumpChosen),
+    suit: canSeeTrump ? state.trumpSuit : null,
+    reverse: canSeeTrump ? state.reverseTrump : null,
+    hiddenFromMe: trumpChosen && !canSeeTrump,
+    revealedBy: state.trumpRevealedBy,
+  };
+
+  const lastTrick = state.completedTricks.length
+    ? state.completedTricks[state.completedTricks.length - 1]
+    : null;
+
+  return {
+    phase: state.phase,
+    round: state.round,
+    seq: state.seq,
+    dealer: state.dealer,
+    turn: state.turn,
+    mySeat: viewer,
+    myHand: viewer !== null ? state.hands[viewer].map((c) => ({ ...c })) : [],
+    legalCardIds: viewer !== null ? getLegalCards(state, viewer).map((c) => c.id) : [],
+    handCounts: state.hands.map((h) => h.length),
+    bidding: {
+      history: state.bidding.history.map((b) => ({ ...b })),
+      highestBid: state.bidding.highestBid,
+      highestBidder: state.bidding.highestBidder,
+      passed: [...state.bidding.passed],
+      minBid: state.rules.minBid,
+      maxBid: state.rules.maxBid,
+      nextMinBid: nextMinBid(state),
+      mustBid: viewer !== null && mustBid(state, viewer),
+    },
+    contract: state.contract ? { ...state.contract } : null,
+    trump,
+    reverseTrumpAllowed: state.reverseTrumpAllowed,
+    canRevealTrump: viewer !== null && canRevealTrump(state, viewer),
+    canDeclarePair: viewer !== null && canDeclarePair(state, viewer),
+    mustPlayTrump: viewer !== null && state.mustPlayTrumpSeat === viewer,
+    pair: state.pair ? { ...state.pair } : null,
+    currentTrick: {
+      leader: state.currentTrick.leader,
+      leadSuit: leadSuit(state),
+      cards: state.currentTrick.cards.map((pc) => ({ seat: pc.seat, card: { ...pc.card } })),
+    },
+    lastTrick: lastTrick ? { ...lastTrick, cards: lastTrick.cards.map((pc) => ({ ...pc })) } : null,
+    tricksPlayed: state.completedTricks.length,
+    tricksWon: [...state.tricksWon] as [number, number],
+    cardPoints: [...state.cardPoints] as [number, number],
+    matchScore: [...state.matchScore] as [number, number],
+    targetScore: state.rules.targetScore,
+    roundResult: state.roundResult,
+    matchWinner: state.matchWinner,
+    turnDeadline: extras.turnDeadline ?? null,
+    log: state.log.slice(-30),
+  };
+}
