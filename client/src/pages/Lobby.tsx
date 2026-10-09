@@ -1,4 +1,4 @@
-import { BookOpen, Check, Copy, Crown, DoorOpen, Eye, Play } from 'lucide-react';
+import { BookOpen, Bot, Check, Copy, Crown, DoorOpen, Eye, Play, X } from 'lucide-react';
 import { useState } from 'react';
 import type { PublicPlayer, Seat } from '@shared/types';
 import { Avatar } from '../components/Avatar';
@@ -61,7 +61,7 @@ export function Lobby({ api, onShowRules }: { api: GameSocketApi; onShowRules: (
               {copied === 'link' ? <Check size={14} /> : <Copy size={14} />} {copied === 'link' ? 'COPIED!' : 'COPY INVITE LINK'}
             </button>
           </div>
-          <p className="muted">Share the code or link with three friends. Partners sit opposite each other.</p>
+          <p className="muted">Share the code or link with friends. Partners sit opposite each other. Short on players? The host can add computer bots to empty seats.</p>
           {room.spectatorCount > 0 && (
             <p className="muted">
               <Eye size={14} /> {room.spectatorCount} watching
@@ -89,7 +89,12 @@ export function Lobby({ api, onShowRules }: { api: GameSocketApi; onShowRules: (
                         {p.isHost && <Crown size={12} className="gold" aria-label="Host" />} {p.nickname}
                         {p.seat === room.mySeat && ' (you)'}
                       </span>
-                      <span className={`status-chip status-chip--${p.status}`}>{STATUS_LABEL[p.status]}</span>
+                      <span className={`status-chip status-chip--${p.status}`}>{p.isBot ? 'BOT · READY' : STATUS_LABEL[p.status]}</span>
+                      {p.isBot && room.isHost && (
+                        <button type="button" className="btn btn--tiny btn--ghost" onClick={() => api.actions.removeBot(seat)}>
+                          <X size={10} /> REMOVE
+                        </button>
+                      )}
                     </>
                   ) : (
                     <>
@@ -97,6 +102,11 @@ export function Lobby({ api, onShowRules }: { api: GameSocketApi; onShowRules: (
                       {canSit && (
                         <button type="button" className="btn btn--tiny" onClick={() => api.actions.switchSeat(seat)}>
                           SIT HERE
+                        </button>
+                      )}
+                      {room.isHost && (
+                        <button type="button" className="btn btn--tiny btn--green" onClick={() => api.actions.addBot(seat)}>
+                          <Bot size={10} /> ADD BOT
                         </button>
                       )}
                     </>
@@ -110,6 +120,17 @@ export function Lobby({ api, onShowRules }: { api: GameSocketApi; onShowRules: (
             {me && (
               <button type="button" className={`btn ${me.ready ? 'btn--green' : 'btn--gold'}`} onClick={() => api.actions.setReady(!me.ready)}>
                 <Check size={16} /> {me.ready ? 'READY!' : 'READY UP'}
+              </button>
+            )}
+            {room.isHost && seated.length < 4 && (
+              <button
+                type="button"
+                className="btn btn--green"
+                onClick={async () => {
+                  for (let i = seated.length; i < 4; i++) await api.actions.addBot();
+                }}
+              >
+                <Bot size={16} /> FILL WITH BOTS
               </button>
             )}
             {room.isHost && (

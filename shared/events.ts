@@ -87,6 +87,10 @@ export interface ClientToServerEvents {
   'room:switchSeat': (p: { roomCode: string; seat: Seat }, ack: AckFn) => void;
   'room:updateSettings': (p: { roomCode: string; settings: Partial<RoomSettings> }, ack: AckFn) => void;
   'room:backToLobby': (p: { roomCode: string }, ack: AckFn) => void;
+  'room:addBot': (p: { roomCode: string; seat?: Seat }, ack: AckFn) => void;
+  'room:removeBot': (p: { roomCode: string; seat: Seat }, ack: AckFn) => void;
+  /** Create a room with three computer players and start immediately. */
+  'room:playVsComputer': (p: CreateRoomPayload, ack: AckFn<JoinResult>) => void;
   'game:start': (p: { roomCode: string }, ack: AckFn) => void;
   'game:bid': (p: GameActionBase & { amount: number }, ack: AckFn) => void;
   'game:pass': (p: GameActionBase, ack: AckFn) => void;

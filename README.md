@@ -18,6 +18,8 @@
 3. Wait for the build to finish. Render gives you a URL such as `https://29-royale-xxxx.onrender.com`.
 4. Open it, enter a nickname, click **Create Room**, and send the invite link to three friends.
 
+**No friends online?** Click **Play vs Computer** on the home page to play with a computer partner against two computer opponents. In a lobby, the host can also **Add Bot** to any empty seat (e.g. 2 friends + 2 bots). Bots decide only from what a human in their seat could see.
+
 The free plan sleeps after about 15 minutes without visitors, so the first visit after a break takes up to a minute to wake. Games in progress are lost when it sleeps or redeploys.
 
 **Same Wi-Fi only?** On any computer with Node.js 20+: `npm install && npm run build && npm start`, then everyone opens `http://<that-computer's-IP>:3001`.

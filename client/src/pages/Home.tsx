@@ -1,4 +1,4 @@
-import { BookOpen, LogIn, Plus } from 'lucide-react';
+import { BookOpen, Bot, LogIn, Plus } from 'lucide-react';
 import { useState } from 'react';
 import type { RoomSettings } from '@shared/types';
 import { Card } from '../components/Card';
@@ -16,7 +16,7 @@ function inviteCodeFromUrl(): string {
 export function Home({ api, onShowRules }: { api: GameSocketApi; onShowRules: () => void }) {
   const invite = inviteCodeFromUrl();
   const [nickname, setNickname] = useState(loadNickname());
-  const [mode, setMode] = useState<'menu' | 'create' | 'join'>(invite ? 'join' : 'menu');
+  const [mode, setMode] = useState<'menu' | 'create' | 'join' | 'bots'>(invite ? 'join' : 'menu');
   const [code, setCode] = useState(invite);
   const [settings, setSettings] = useState<RoomSettings>(DEFAULTS);
   const [busy, setBusy] = useState(false);
@@ -75,7 +75,38 @@ export function Home({ api, onShowRules }: { api: GameSocketApi; onShowRules: ()
             <button type="button" className="btn" onClick={() => setMode('join')}>
               <LogIn size={16} /> JOIN ROOM
             </button>
+            <button
+              type="button"
+              className="btn btn--green home__vs-cpu"
+              onClick={() => {
+                setSettings((s) => ({ ...s, turnTimeLimitSec: 0 }));
+                setMode('bots');
+              }}
+            >
+              <Bot size={16} /> PLAY VS COMPUTER
+            </button>
           </div>
+        )}
+
+        {mode === 'bots' && (
+          <form
+            className="home__form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              run(() => api.actions.playVsComputer(nickname.trim(), settings));
+            }}
+          >
+            <p className="muted">You play with a computer partner against two computer opponents.</p>
+            <SettingsForm value={settings} onChange={(p) => setSettings((s) => ({ ...s, ...p }))} />
+            <div className="home__buttons">
+              <button type="submit" className="btn btn--green" disabled={busy}>
+                <Bot size={16} /> START GAME
+              </button>
+              <button type="button" className="btn btn--ghost" onClick={() => setMode('menu')}>
+                BACK
+              </button>
+            </div>
+          </form>
         )}
 
         {mode === 'create' && (

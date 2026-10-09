@@ -16,6 +16,7 @@ import {
   seatToAct,
   startMatch,
 } from '../game/engine';
+import { chooseBotAction } from '../game/bot';
 import { buildPlayerView } from '../game/playerView';
 import type { EngineEvent, GameAction } from '../game/state';
 import { RoomError, type PlayerSession, type Room } from './Room';
@@ -42,11 +43,14 @@ export interface RoomManagerOptions {
   vacantSeatDelayMs?: number;
   /** Override for the trick display time (tests use a small value). */
   trickDisplayMs?: number;
+  /** How long a computer player "thinks" before acting. */
+  botDelayMs?: number;
   /** Auto-advance from the round-end screen after this long (when a turn timer is on). */
   roundEndAutoAdvanceMs?: number;
   now?: () => number;
 }
 
+const BOT_NAMES = ['Robo Raja', 'Chip Rani', 'Byte Babu', 'Pixel Mia', 'Bit Bobby', 'Gizmo Guru'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 5;
 const MAX_RECENT_ACTIONS = 64;
@@ -91,6 +95,7 @@ export class RoomManager {
       roomIdleTtlMs: options.roomIdleTtlMs ?? 10 * 60_000,
       vacantSeatDelayMs: options.vacantSeatDelayMs ?? 1_200,
       roundEndAutoAdvanceMs: options.roundEndAutoAdvanceMs ?? 25_000,
+      botDelayMs: options.botDelayMs ?? 900,
       trickDisplayMs: options.trickDisplayMs,
       now: options.now ?? Date.now,
     };
@@ -108,7 +113,7 @@ export class RoomManager {
     const now = this.opts.now();
     let removed = 0;
     for (const room of [...this.store.values()]) {
-      const anyoneConnected = [...room.players.values()].some((p) => p.connected);
+      const anyoneConnected = [...room.players.values()].some((p) => p.connected && !p.isBot);
       if (!anyoneConnected && now - room.lastActivity > this.opts.roomIdleTtlMs) {
         this.destroyRoom(room, 'Room closed due to inactivity.');
         removed++;
@@ -202,6 +207,7 @@ export class RoomManager {
       ready: false,
       disconnectedAt: null,
       vacated: false,
+      isBot: false,
       recentActionIds: [],
     };
     room.players.set(player.playerId, player);
@@ -322,7 +328,7 @@ export class RoomManager {
       room.players.delete(player.playerId);
     }
     this.ensureHost(room);
-    if (![...room.players.values()].some((p) => p.connected)) {
+    if (![...room.players.values()].some((p) => p.connected && !p.isBot)) {
       // Nobody left: keep briefly for reconnects; the sweeper deletes it later.
       this.clearTurnTimer(room);
     }
@@ -335,10 +341,10 @@ export class RoomManager {
 
   private ensureHost(room: Room): void {
     const host = room.players.get(room.hostId);
-    if (host && host.seat !== null && !host.vacated) return;
+    if (host && host.seat !== null && !host.vacated && !host.isBot) return;
     const next = room.seats
       .map((pid) => (pid ? room.players.get(pid) : undefined))
-      .find((p) => p && p.connected && !p.vacated);
+      .find((p) => p && p.connected && !p.vacated && !p.isBot);
     if (next) room.hostId = next.playerId;
   }
 
@@ -530,7 +536,7 @@ export class RoomManager {
     this.clearTurnTimer(room);
     const game = room.game;
     if (!game || room.status !== 'inGame') return;
-    const anyoneConnected = [...room.players.values()].some((p) => p.connected && p.seat !== null);
+    const anyoneConnected = [...room.players.values()].some((p) => p.connected && p.seat !== null && !p.isBot);
     if (!anyoneConnected) return;
 
     const seq = game.seq;
@@ -549,6 +555,10 @@ export class RoomManager {
     if (seat === null) return;
     const pid = room.seats[seat];
     const player = pid ? room.players.get(pid) : undefined;
+    if (player?.isBot) {
+      room.timers.turn = setTimeout(() => this.botAct(room, seq, seat), this.opts.botDelayMs);
+      return;
+    }
     const vacant = !player || player.vacated;
     const delay = vacant ? this.opts.vacantSeatDelayMs : limitMs;
     if (delay <= 0) return;
@@ -567,6 +577,80 @@ export class RoomManager {
     if (!action) return;
     const res = applyAction(game, actor, action, this.rng);
     if (res.ok) this.afterChange(room, res.events);
+  }
+
+  /** A computer player takes its turn using only its own player view. */
+  private botAct(room: Room, seq: number, seat: Seat): void {
+    room.timers.turn = null;
+    const game = room.game;
+    if (!game || game.seq !== seq || this.store.get(room.code) !== room) return;
+    const view = buildPlayerView(game, seat);
+    const choice = chooseBotAction(view, game.rules.reverseTrumpScope);
+    let res = choice ? applyAction(game, seat, choice, this.rng) : null;
+    if (!res?.ok) {
+      const fallback = getAutoAction(game, seat);
+      res = fallback ? applyAction(game, seat, fallback, this.rng) : null;
+    }
+    if (res?.ok) this.afterChange(room, res.events);
+  }
+
+  // ── bots ─────────────────────────────────────────────────────────────
+
+  private addBotPlayer(room: Room, seat: Seat): PlayerSession {
+    const used = new Set([...room.players.values()].map((p) => p.nickname));
+    const name = BOT_NAMES.find((n) => !used.has(n)) ?? `Bot ${seat + 1}`;
+    const bot: PlayerSession = {
+      playerId: randomUUID(),
+      tokenHash: `bot:${randomUUID()}`,
+      nickname: name,
+      seat,
+      socketId: null,
+      connected: true,
+      ready: true,
+      disconnectedAt: null,
+      vacated: false,
+      isBot: true,
+      recentActionIds: [],
+    };
+    room.players.set(bot.playerId, bot);
+    room.seats[seat] = bot.playerId;
+    return bot;
+  }
+
+  /** Host fills an empty seat (the first one if none given) with a computer player. */
+  addBot(socketId: string, seat?: Seat): void {
+    const { room, player } = this.context(socketId);
+    this.requireHost(room, player);
+    if (room.status !== 'lobby') throw new RoomError('WRONG_PHASE', 'Bots can only be added in the lobby.');
+    const target = seat ?? (room.seats.findIndex((s) => s === null) as Seat | -1);
+    if (target === -1) throw new RoomError('ROOM_FULL', 'All four seats are taken.');
+    if (room.seats[target] !== null) throw new RoomError('SEAT_TAKEN', 'That seat is already taken.');
+    this.addBotPlayer(room, target);
+    this.touch(room);
+    this.broadcastRoom(room);
+  }
+
+  removeBot(socketId: string, seat: Seat): void {
+    const { room, player } = this.context(socketId);
+    this.requireHost(room, player);
+    if (room.status !== 'lobby') throw new RoomError('WRONG_PHASE', 'Bots can only be removed in the lobby.');
+    const pid = room.seats[seat];
+    const bot = pid ? room.players.get(pid) : undefined;
+    if (!bot?.isBot) throw new RoomError('NOT_IN_ROOM', 'There is no bot in that seat.');
+    room.players.delete(bot.playerId);
+    room.seats[seat] = null;
+    this.touch(room);
+    this.broadcastRoom(room);
+  }
+
+  /** One-click "Play vs Computer": new room, three bots, match starts immediately. */
+  playVsComputer(socketId: string, nickname: string, settings: Partial<RoomSettings> = {}): JoinResult {
+    const created = this.createRoom(socketId, nickname, settings);
+    const room = this.store.get(created.room.code)!;
+    for (const seat of [1, 2, 3] as Seat[]) this.addBotPlayer(room, seat);
+    room.players.get(created.playerId)!.ready = true;
+    this.startGame(socketId);
+    return { ...created, room: this.roomView(room, created.playerId) };
   }
 
   // ── helpers ──────────────────────────────────────────────────────────
@@ -614,6 +698,7 @@ export class RoomManager {
         ready: p.ready,
         isHost: room.hostId === p.playerId,
         vacated: p.vacated,
+        isBot: p.isBot,
         status,
       };
     });

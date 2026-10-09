@@ -181,7 +181,7 @@ export function useGameSocket() {
       saveNickname(nickname);
       saveSession({ roomCode: res.data.room.code, token: res.data.sessionToken });
       setRoom(res.data.room);
-      setGame(null);
+      if (res.data.room.status === 'lobby') setGame(null);
     }
     return res;
   }, []);
@@ -200,6 +200,10 @@ export function useGameSocket() {
     () => ({
       createRoom: async (nickname: string, settings: Partial<RoomSettings>) =>
         onJoined(await call<JoinResult>('room:create', { nickname, settings }), nickname),
+      playVsComputer: async (nickname: string, settings: Partial<RoomSettings>) =>
+        onJoined(await call<JoinResult>('room:playVsComputer', { nickname, settings }), nickname),
+      addBot: (seat?: Seat) => call('room:addBot', { roomCode: roomRef.current!.code, seat }),
+      removeBot: (seat: Seat) => call('room:removeBot', { roomCode: roomRef.current!.code, seat }),
       joinRoom: async (roomCode: string, nickname: string, asSpectator = false) =>
         onJoined(await call<JoinResult>('room:join', { roomCode: roomCode.toUpperCase(), nickname, asSpectator }), nickname),
       leaveRoom: async () => {

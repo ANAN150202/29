@@ -107,7 +107,15 @@ export function registerSocketHandlers(io: IO, options: HandlerOptions = {}): Ro
       }
       return manager.createRoom(socket.id, p.nickname, p.settings);
     });
+    on('room:playVsComputer', (p) => {
+      if (!createLimiter.hit(`create:${ip}`)) {
+        throw new RoomError('RATE_LIMITED', 'Too many rooms created — try again in a minute.');
+      }
+      return manager.playVsComputer(socket.id, p.nickname, p.settings);
+    });
     on('room:join', (p) => manager.joinRoom(socket.id, p));
+    on('room:addBot', (p) => manager.addBot(socket.id, p.seat));
+    on('room:removeBot', (p) => manager.removeBot(socket.id, p.seat));
     on('room:leave', () => manager.leaveRoom(socket.id));
     on('room:ready', (p) => manager.setReady(socket.id, p.ready));
     on('room:switchSeat', (p) => manager.switchSeat(socket.id, p.seat));

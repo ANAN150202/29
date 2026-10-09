@@ -65,6 +65,8 @@ export interface PublicPlayer {
   isHost: boolean;
   /** Seat holder left mid-match; the server auto-plays until someone takes the seat. */
   vacated: boolean;
+  /** Computer-controlled player. */
+  isBot: boolean;
   status: SeatStatus;
 }
 

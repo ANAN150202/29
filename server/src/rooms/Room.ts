@@ -16,6 +16,8 @@ export interface PlayerSession {
   disconnectedAt: number | null;
   /** Left mid-match or exceeded the reconnection grace period; auto-played. */
   vacated: boolean;
+  /** Computer-controlled seat (no socket; always connected and ready). */
+  isBot: boolean;
   /** Recently seen action ids (for duplicate detection). */
   recentActionIds: string[];
 }

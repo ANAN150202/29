@@ -1,4 +1,4 @@
-import { Crown, WifiOff, Bot } from 'lucide-react';
+import { Crown, WifiOff, Bot, Cpu } from 'lucide-react';
 import type { GameView, PublicPlayer, Seat } from '@shared/types';
 import type { Position } from '../game/labels';
 import { Avatar } from './Avatar';
@@ -37,6 +37,11 @@ export function PlayerSeat({
           </span>
           <span className="seat__badges">
             <span className={`team-dot team-dot--${team}`} aria-label={team === 0 ? 'Team Red' : 'Team Blue'} />
+            {player?.isBot && (
+              <span className="badge" title="Computer player">
+                <Cpu size={10} /> CPU
+              </span>
+            )}
             {game.dealer === seat && <span className="badge">DEAL</span>}
             {isBidder && <span className="badge badge--gold">BID {game.contract!.target}</span>}
             {game.phase === 'bidding' && lastBid && (

@@ -103,6 +103,7 @@ async function startServer(opts: AppOptions = {}) {
   app = createApp({ trickDisplayMs: 5, vacantSeatDelayMs: 5, roomCreateLimit: { limit: 100, windowMs: 60_000 },
     // Test bots act far faster than humans; the default per-socket limit is 40 events/s.
     eventLimit: { limit: 10_000, windowMs: 1_000 },
+    botDelayMs: 5,
     ...opts,
    });
   await new Promise<void>((r) => app.httpServer.listen(0, r));
@@ -347,6 +348,74 @@ describe('match flow', () => {
     expect((await players[2].gameAction('game:rematch')).ok).toBe(true);
     for (const p of players) await p.waitFor(() => p.state!.phase === 'bidding' && p.state!.matchScore[0] === 0, 'rematch');
   }, 60_000);
+});
+
+describe('computer players', () => {
+  it('play vs computer: one human and three bots play a full round', async () => {
+    const me = await client('Solo');
+    const res = await me.emit<JoinResult>('room:playVsComputer', { nickname: 'Solo', settings: { turnTimeLimitSec: 0 } });
+    expect(res.ok).toBe(true);
+    await me.waitFor(() => !!me.state && !!me.room, 'game state');
+    expect(me.room!.status).toBe('inGame');
+    expect(me.room!.mySeat).toBe(0);
+    expect(me.room!.seats.filter((p) => p?.isBot)).toHaveLength(3);
+    const startRound = me.state!.round;
+    let guard = 0;
+    while (me.state!.phase !== 'roundEnd' && me.state!.phase !== 'matchEnd' && guard++ < 500) {
+      const st = me.state!;
+      if (st.turn === 0 && ['bidding', 'trumpSelection', 'playing'].includes(st.phase)) {
+        let r;
+        if (st.phase === 'bidding') r = await me.gameAction(st.bidding.highestBid === null ? 'game:bid' : 'game:pass', { amount: 16 });
+        else if (st.phase === 'trumpSelection') r = await me.gameAction('game:chooseTrump', { suit: 'spades', reverse: false });
+        else r = await me.gameAction('game:playCard', { cardId: st.legalCardIds[0] });
+        expect(r).toMatchObject({ ok: true });
+      }
+      const seq = st.seq;
+      await me.waitFor(() => me.state!.seq > seq || ['roundEnd', 'matchEnd'].includes(me.state!.phase), 'bots to act', 8000);
+    }
+    expect(['roundEnd', 'matchEnd']).toContain(me.state!.phase);
+    expect(me.state!.round).toBe(startRound);
+    const r = me.state!.roundResult!;
+    expect(r.cardPoints[0] + r.cardPoints[1]).toBe(28);
+    // Bots never leak their hands to the human.
+    expect(me.state!.myHand).toHaveLength(0);
+  });
+
+  it('host can add and remove bots in the lobby; others cannot', async () => {
+    const host = await client('Host');
+    const created = await host.emit<JoinResult>('room:create', { nickname: 'Host' });
+    const code = created.ok ? created.data.room.code : '';
+    const friend = await client('Friend');
+    await friend.emit('room:join', { roomCode: code, nickname: 'Friend' });
+    expect(await friend.emit('room:addBot', { roomCode: code })).toMatchObject({ ok: false, error: { code: 'NOT_HOST' } });
+    expect((await host.emit('room:addBot', { roomCode: code })).ok).toBe(true);
+    expect((await host.emit('room:addBot', { roomCode: code, seat: 3 })).ok).toBe(true);
+    expect(await host.emit('room:addBot', { roomCode: code })).toMatchObject({ ok: false, error: { code: 'ROOM_FULL' } });
+    await host.waitFor(() => host.room!.seats.filter((p) => p?.isBot).length === 2, 'two bots');
+    expect(host.room!.seats.filter((p) => p?.isBot).every((p) => p!.ready)).toBe(true);
+    expect((await host.emit('room:removeBot', { roomCode: code, seat: 3 })).ok).toBe(true);
+    expect(await host.emit('room:removeBot', { roomCode: code, seat: 0 })).toMatchObject({ ok: false });
+    expect((await host.emit('room:addBot', { roomCode: code, seat: 3 })).ok).toBe(true);
+    // Two humans + two bots can start once the humans are ready.
+    await host.emit('room:ready', { roomCode: code, ready: true });
+    await friend.emit('room:ready', { roomCode: code, ready: true });
+    expect((await host.emit('game:start', { roomCode: code })).ok).toBe(true);
+    await friend.waitFor(() => friend.state?.phase === 'bidding', 'bidding');
+  });
+
+  it('a room with only bots left is cleaned up', async () => {
+    const me = await client('Solo');
+    await me.emit<JoinResult>('room:playVsComputer', { nickname: 'Solo', settings: { turnTimeLimitSec: 0 } });
+    me.socket.disconnect();
+    await new Promise((r) => setTimeout(r, 50));
+    const real = Date.now;
+    (app.manager as unknown as { opts: { now: () => number } }).opts.now = () => real() + 11 * 60_000;
+    try {
+      expect(app.manager.sweep()).toBe(1);
+    } finally {
+      (app.manager as unknown as { opts: { now: () => number } }).opts.now = real;
+    }
+  });
 });
 
 describe('reliability', () => {

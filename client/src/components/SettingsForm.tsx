@@ -30,8 +30,8 @@ export function SettingsForm({
       <label className="field">
         <span className="field__label">BIDDING</span>
         <select value={value.biddingStyle} onChange={(e) => onChange({ biddingStyle: e.target.value as RoomSettings['biddingStyle'] })}>
-          <option value="duel">Duel — two at a time, earlier player can stay</option>
-          <option value="open">Open — everyone raises in turn</option>
+          <option value="duel">Duel (two at a time, can stay)</option>
+          <option value="open">Open (everyone raises in turn)</option>
         </select>
       </label>
       <label className="toggle">
