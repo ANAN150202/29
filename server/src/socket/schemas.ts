@@ -17,6 +17,7 @@ export const settingsSchema = z
     reverseTrumpEnabled: z.boolean(),
     allowSpectators: z.boolean(),
     turnTimeLimitSec: z.number().int().min(0).max(300),
+    biddingStyle: z.enum(['duel', 'open']),
   })
   .partial()
   .strict();

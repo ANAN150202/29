@@ -24,6 +24,17 @@ export type AllPassAction =
   /** If the first three players pass, the dealer must bid the minimum. */
   | 'dealerForced';
 
+export type BiddingStyle =
+  /**
+   * Traditional 29 auction: two players bid at a time. The first two after the
+   * dealer start; the later player must bid higher, the earlier player (who
+   * holds priority) may "stay" by matching. Whoever passes is out and the next
+   * player in order challenges the survivor, until everyone has spoken.
+   */
+  | 'duel'
+  /** Everyone bids in turn order; each bid must beat the current high bid. */
+  | 'open';
+
 export type ReverseTrumpScope =
   /** Only the trump suit's rank order is inverted (default). */
   | 'trumpSuitOnly'
@@ -44,6 +55,8 @@ export interface RulesConfig {
   bidIncrement: number;
   /** What happens when nobody bids. */
   allPassAction: AllPassAction;
+  /** Auction format (default 'duel'; rooms can switch to 'open'). */
+  biddingStyle: BiddingStyle;
 
   // ── Trump ────────────────────────────────────────────────────────────
   /**
@@ -119,6 +132,7 @@ export const CLASSIC_RULES: RulesConfig = {
   maxBid: 28,
   bidIncrement: 1,
   allPassAction: 'redeal',
+  biddingStyle: 'duel',
   trumpConcealed: true,
   mustPlayTrumpAfterReveal: true,
   reverseTrumpSupported: true,

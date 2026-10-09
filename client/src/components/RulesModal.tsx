@@ -28,9 +28,12 @@ export function RulesModal({ onClose }: { onClose: () => void }) {
 
         <h3>Deal &amp; bidding</h3>
         <p>
-          Everyone gets 4 cards. Starting with the player after the dealer, players bid the number of card points their
-          team will win (16–28) or pass. Once you pass you are out of the auction. If everyone passes, the cards are
-          redealt by the next dealer.
+          Everyone gets 4 cards, then players bid the number of card points their team will win (16–28).{' '}
+          <b>Duel bidding</b> (default): only two players bid at a time. The first two after the dealer start; the
+          later player must bid <b>higher</b>, while the earlier player may <b>stay</b> at the same number. Whoever
+          passes is out, and the next player in order challenges the survivor — partners duel too. The last player
+          standing wins the bid. If everyone passes, the cards are reshuffled and the next player deals.{' '}
+          <b>Open bidding</b> (room option): everyone raises in turn instead.
         </p>
 
         <h3>Trump</h3>

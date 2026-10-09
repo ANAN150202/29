@@ -129,7 +129,9 @@ export function Lobby({ api, onShowRules }: { api: GameSocketApi; onShowRules: (
           <SettingsForm value={room.settings} onChange={(patch) => api.actions.updateSettings(patch)} disabled={!room.isHost} />
           {!room.isHost && <p className="muted">Only the host can change the rules.</p>}
           <ul className="rules-summary">
-            <li>Bids {room.ruleset.minBid}–{room.ruleset.maxBid}</li>
+            <li>
+              Bids {room.ruleset.minBid}–{room.ruleset.maxBid} · {room.settings.biddingStyle === 'duel' ? 'duel bidding (stay allowed)' : 'open bidding'}
+            </li>
             <li>{room.ruleset.trumpConcealed ? 'Hidden trump, revealed on demand' : 'Trump announced openly'}</li>
             <li>{room.ruleset.pairEnabled ? 'Pair (K+Q of trump) ±4' : 'No pair'}</li>
             <li>

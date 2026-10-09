@@ -24,6 +24,14 @@ export interface BiddingState {
   highestBid: number | null;
   highestBidder: Seat | null;
   passed: [boolean, boolean, boolean, boolean];
+  /** Speaking order for this round, starting after the dealer. */
+  order: Seat[];
+  /** Duel bidding: the player with priority (may "stay" at the current bid). */
+  holder: Seat | null;
+  /** Duel bidding: the player who must outbid the holder (null when bidding alone). */
+  challenger: Seat | null;
+  /** Duel bidding: index in `order` of the next player to enter the duel. */
+  nextEntrant: number;
 }
 
 export interface GameState {

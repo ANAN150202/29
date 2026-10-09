@@ -5,7 +5,7 @@ import { Card } from '../components/Card';
 import { SettingsForm } from '../components/SettingsForm';
 import { loadNickname, type GameSocketApi } from '../game/useGameSocket';
 
-const DEFAULTS: RoomSettings = { rulesetId: 'classic', reverseTrumpEnabled: true, allowSpectators: false, turnTimeLimitSec: 45 };
+const DEFAULTS: RoomSettings = { rulesetId: 'classic', reverseTrumpEnabled: true, allowSpectators: false, turnTimeLimitSec: 45, biddingStyle: 'duel' };
 
 function inviteCodeFromUrl(): string {
   const p = new URLSearchParams(window.location.search);

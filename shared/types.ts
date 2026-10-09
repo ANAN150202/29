@@ -50,6 +50,8 @@ export interface RoomSettings {
   allowSpectators: boolean;
   /** Seconds a player has to act; 0 disables the timer. */
   turnTimeLimitSec: number;
+  /** 'duel' = traditional two-at-a-time auction with "stay"; 'open' = everyone raises in turn. */
+  biddingStyle: BiddingStyle;
 }
 
 export type SeatStatus = 'empty' | 'connected' | 'ready' | 'disconnected' | 'vacant';
@@ -82,7 +84,11 @@ export interface BidEntry {
   seat: Seat;
   /** null = pass */
   bid: number | null;
+  /** Duel bidding: the player with priority matched the current bid. */
+  stay?: boolean;
 }
+
+export type BiddingStyle = 'duel' | 'open';
 
 export interface PlayedCard {
   seat: Seat;
@@ -169,6 +175,15 @@ export interface GameView {
     nextMinBid: number;
     /** True when the viewer may not pass (dealer forced to bid). */
     mustBid: boolean;
+    style: BiddingStyle;
+    /** Duel: player with priority (can stay). */
+    holder: Seat | null;
+    /** Duel: player who must outbid the holder. */
+    challenger: Seat | null;
+    /** Duel: players who have not entered the bidding yet, in order. */
+    waiting: Seat[];
+    /** True when the viewer's lowest legal bid equals the current bid (a "stay"). */
+    canStay: boolean;
   };
   contract: Contract | null;
   trump: TrumpView;

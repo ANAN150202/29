@@ -20,19 +20,46 @@ the engine never hard-codes a regional rule.
 
 Card points, tricks won, and game points (the match score) are kept separately in state and code.
 
-## Bidding (default: `classic`)
+## Bidding
 
 | Setting | Default | Config key |
 |---|---|---|
 | Lowest bid | 16 | `minBid` |
 | Highest bid | 28 | `maxBid` |
-| Increment | +1 over the current high bid | `bidIncrement` |
-| Everyone passes | Hand thrown in, deal passes to the next dealer | `allPassAction: 'redeal'` (alt: `'dealerForced'`) |
+| Increment | +1 | `bidIncrement` |
+| Auction format | **Duel** (room option: Open) | `biddingStyle` / room setting `biddingStyle` |
+| Everyone passes | Cards reshuffled, deal passes to the next player | `allPassAction: 'redeal'` (alt: `'dealerForced'`) |
 
-* Bidding starts with the seat after the dealer and goes around in turn order.
-* On your turn you either **bid** (above the current high bid) or **pass**. A player who passes is out of the auction for the rest of the round.
-* The auction ends when only the highest bidder is left, or immediately on a bid of 28.
-* Under `dealerForced`, if the first three players pass, the dealer may not pass and must bid at least the minimum.
+### Duel bidding (default, traditional)
+
+Players speak in order starting after the dealer: **P1, P2, P3, P4** (P4 is the dealer).
+
+1. Only **two players bid at a time**. The duel starts with **P1 (holder) against P2 (challenger)**. P1 speaks first.
+2. The **challenger must bid higher** than the current bid.
+3. The **holder has priority** and may **stay**, matching the current bid, or raise.
+4. Whoever **passes is out** for the round. The survivor keeps (or gains) priority and becomes the holder against the **next player in order**, who must go higher.
+5. This repeats until every player has had a chance. The last player standing wins the bid at its final amount. Partners duel each other exactly like opponents.
+
+Details:
+
+* **P1 may pass without bidding.** P2 and P3 then duel, and P2 holds priority (P2 speaks first, since there is no bid yet).
+* If everyone before the last player passed without bidding, the **last player bids or passes alone**. If all four pass, the cards are reshuffled and the next player deals.
+* **Staying at 28 is allowed.** No challenger can go higher, so the remaining players pass automatically and the holder wins at 28.
+
+Example (P1 = you, P2 = right opponent, P3 = your partner, P4 = left opponent):
+
+| # | Action | Duel |
+|---|---|---|
+| 1 | P1 bids 16 | P1 vs P2 |
+| 2 | P2 bids 17 (must exceed) | |
+| 3 | P1 **stays** 17 | |
+| 4 | P2 bids 18 | |
+| 5 | P1 passes (out) | P2 vs P3 |
+| 6 | P3 must bid 19+, P2 may stay… | if P2 passes: P3 vs P4 |
+
+### Open bidding (room option)
+
+Everyone bids in turn order. Each bid must beat the current high bid by at least the increment, and a player who passes is out. The auction ends when only the highest bidder is left, or immediately on a bid of 28.
 
 ## Trump selection
 

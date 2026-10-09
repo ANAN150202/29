@@ -57,6 +57,7 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   reverseTrumpEnabled: true,
   allowSpectators: false,
   turnTimeLimitSec: 45,
+  biddingStyle: 'duel',
 };
 
 /** Control, zero-width and bidi-override characters stripped from nicknames. */
@@ -158,6 +159,7 @@ export class RoomManager {
     if (!RULESETS[s.rulesetId]) s.rulesetId = DEFAULT_RULESET_ID;
     if (!getRuleset(s.rulesetId).reverseTrumpSupported) s.reverseTrumpEnabled = false;
     if (!(TURN_TIME_OPTIONS as readonly number[]).includes(s.turnTimeLimitSec)) s.turnTimeLimitSec = base.turnTimeLimitSec;
+    if (s.biddingStyle !== 'duel' && s.biddingStyle !== 'open') s.biddingStyle = base.biddingStyle;
     return s;
   }
 
@@ -430,7 +432,8 @@ export class RoomManager {
       throw new RoomError('NOT_READY', 'All four players must be connected and ready.');
     }
     const names = seated.map((p) => p!.nickname) as [string, string, string, string];
-    room.game = createGame({ rules: room.rules, reverseTrumpAllowed: room.settings.reverseTrumpEnabled, names });
+    const rules = { ...room.rules, biddingStyle: room.settings.biddingStyle };
+    room.game = createGame({ rules, reverseTrumpAllowed: room.settings.reverseTrumpEnabled, names });
     room.status = 'inGame';
     const events = startMatch(room.game, this.rng);
     this.broadcastEvent(room, 'game:started', { round: room.game.round });

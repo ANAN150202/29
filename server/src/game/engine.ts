@@ -80,8 +80,19 @@ export function createGame(opts: {
   };
 }
 
-function freshBidding(): GameState['bidding'] {
-  return { history: [], highestBid: null, highestBidder: null, passed: [false, false, false, false] };
+function freshBidding(dealer: Seat = 0): GameState['bidding'] {
+  const order: Seat[] = [];
+  for (let i = 1; i <= 4; i++) order.push(((dealer + i) % 4) as Seat);
+  return {
+    history: [],
+    highestBid: null,
+    highestBidder: null,
+    passed: [false, false, false, false],
+    order,
+    holder: order[0],
+    challenger: order[1],
+    nextEntrant: 2,
+  };
 }
 
 function log(state: GameState, text: string, kind: LogEntry['kind']): void {
@@ -112,7 +123,7 @@ export function startRound(state: GameState, rng: RandomIntFn = secureRandomInt)
   state.phase = 'dealing';
   state.deck = shuffle(createDeck(), rng);
   state.hands = [[], [], [], []];
-  state.bidding = freshBidding();
+  state.bidding = freshBidding(state.dealer);
   state.contract = null;
   state.trumpSuit = null;
   state.reverseTrump = false;
@@ -152,9 +163,15 @@ export function leadSuit(state: GameState): Suit | null {
   return state.currentTrick.cards[0]?.card.suit ?? null;
 }
 
-export function nextMinBid(state: GameState): number {
-  const { highestBid } = state.bidding;
-  return highestBid === null ? state.rules.minBid : highestBid + state.rules.bidIncrement;
+/**
+ * Lowest amount `seat` may bid now. In duel bidding the player with priority
+ * (the holder) may "stay" by matching the current bid; everyone else must go higher.
+ */
+export function nextMinBid(state: GameState, seat: Seat | null = state.turn): number {
+  const { highestBid, holder } = state.bidding;
+  if (highestBid === null) return state.rules.minBid;
+  if (state.rules.biddingStyle === 'duel' && seat !== null && seat === holder) return highestBid;
+  return highestBid + state.rules.bidIncrement;
 }
 
 /** Dealer forced to bid because the other three passed without a bid. */
@@ -230,39 +247,85 @@ export function applyAction(
 function doBid(state: GameState, seat: Seat, amount: number): EngineResult {
   if (state.turn !== seat) return fail('NOT_YOUR_TURN', 'It is not your turn to bid.');
   if (state.bidding.passed[seat]) return fail('ILLEGAL_BID', 'You have already passed.');
-  const min = nextMinBid(state);
+  const min = nextMinBid(state, seat);
+  if (min > state.rules.maxBid) return fail('ILLEGAL_BID', 'You cannot bid any higher — you must pass.');
   if (!Number.isInteger(amount) || amount < min || amount > state.rules.maxBid) {
     return fail('ILLEGAL_BID', `Bid must be a whole number between ${min} and ${state.rules.maxBid}.`);
   }
-  state.bidding.history.push({ seat, bid: amount });
-  state.bidding.highestBid = amount;
-  state.bidding.highestBidder = seat;
-  log(state, `${state.names[seat]} bids ${amount}.`, 'bid');
+  const b = state.bidding;
+  const stay = state.rules.biddingStyle === 'duel' && b.highestBid !== null && amount === b.highestBid;
+  b.history.push(stay ? { seat, bid: amount, stay: true } : { seat, bid: amount });
+  b.highestBid = amount;
+  b.highestBidder = seat;
+  log(state, stay ? `${state.names[seat]} stays at ${amount}.` : `${state.names[seat]} bids ${amount}.`, 'bid');
   state.seq += 1;
-  const othersActive = state.bidding.passed.some((p, s) => !p && s !== seat);
+
+  if (state.rules.biddingStyle === 'duel') {
+    const opponent = seat === b.holder ? b.challenger : b.holder;
+    if (opponent === null) return { ok: true, events: endBidding(state) };
+    state.turn = opponent;
+    return { ok: true, events: forcePassesIfOutbid(state) };
+  }
+
+  const othersActive = b.passed.some((p, s) => !p && s !== seat);
   if (amount === state.rules.maxBid || !othersActive) return { ok: true, events: endBidding(state) };
   advanceBidTurn(state);
   return { ok: true, events: [] };
 }
 
-function doPass(state: GameState, seat: Seat, rng: RandomIntFn): EngineResult {
+function doPass(state: GameState, seat: Seat, rng: RandomIntFn, forced = false): EngineResult {
   if (state.turn !== seat) return fail('NOT_YOUR_TURN', 'It is not your turn to bid.');
   if (mustBid(state, seat)) return fail('CANNOT_PASS', 'Everyone else passed — the dealer must bid.');
-  state.bidding.passed[seat] = true;
-  state.bidding.history.push({ seat, bid: null });
-  log(state, `${state.names[seat]} passes.`, 'bid');
+  const b = state.bidding;
+  b.passed[seat] = true;
+  b.history.push({ seat, bid: null });
+  log(state, forced ? `${state.names[seat]} cannot go above ${b.highestBid} and passes.` : `${state.names[seat]} passes.`, 'bid');
   state.seq += 1;
 
-  const active = state.bidding.passed.filter((p) => !p).length;
-  if (state.bidding.highestBid === null && active === 0) {
+  const active = b.passed.filter((p) => !p).length;
+  if (b.highestBid === null && active === 0) {
     log(state, 'Everyone passed — the hand is redealt.', 'round');
     state.dealer = nextSeat(state.dealer);
     const events = startRound(state, rng);
     return { ok: true, events: [{ type: 'redeal', reason: 'All players passed.' }, ...events] };
   }
-  if (state.bidding.highestBid !== null && active === 1) return { ok: true, events: endBidding(state) };
+
+  if (state.rules.biddingStyle === 'duel') {
+    // The survivor of the duel keeps priority and faces the next player in order.
+    const survivor = seat === b.holder ? b.challenger : b.holder;
+    if (b.nextEntrant < b.order.length) {
+      b.holder = survivor;
+      b.challenger = b.order[b.nextEntrant++];
+      if (b.holder === null) {
+        // Only possible when nobody is left in the duel; the entrant speaks alone.
+        b.holder = b.challenger;
+        b.challenger = null;
+      }
+      state.turn = b.highestBid === null ? b.holder : b.challenger ?? b.holder;
+      return { ok: true, events: forcePassesIfOutbid(state) };
+    }
+    if (b.highestBid !== null) return { ok: true, events: endBidding(state) };
+    // Nobody has bid and everyone else is out: the last player speaks alone.
+    b.holder = survivor;
+    b.challenger = null;
+    state.turn = survivor;
+    return { ok: true, events: [] };
+  }
+
+  if (b.highestBid !== null && active === 1) return { ok: true, events: endBidding(state) };
   advanceBidTurn(state);
   return { ok: true, events: [] };
+}
+
+/** Duel bidding: a challenger who cannot exceed the current bid (it is already the maximum) passes automatically. */
+function forcePassesIfOutbid(state: GameState): EngineEvent[] {
+  const events: EngineEvent[] = [];
+  while (state.phase === 'bidding' && state.turn !== null && nextMinBid(state, state.turn) > state.rules.maxBid) {
+    const res = doPass(state, state.turn, secureRandomInt, true);
+    if (!res.ok) break;
+    events.push(...res.events);
+  }
+  return events;
 }
 
 function advanceBidTurn(state: GameState): void {
@@ -467,7 +530,7 @@ export function seatToAct(state: GameState): Seat | null {
  */
 export function getAutoAction(state: GameState, seat: Seat): GameAction | null {
   if (state.phase === 'bidding' && state.turn === seat) {
-    return mustBid(state, seat) ? { type: 'bid', amount: nextMinBid(state) } : { type: 'pass' };
+    return mustBid(state, seat) ? { type: 'bid', amount: nextMinBid(state, seat) } : { type: 'pass' };
   }
   if (state.phase === 'trumpSelection' && state.contract?.bidder === seat) {
     const hand = state.hands[seat];

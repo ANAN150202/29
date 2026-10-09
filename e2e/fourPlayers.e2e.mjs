@@ -107,6 +107,8 @@ async function main() {
 
     let roundsDone = 0;
     let reloaded = false;
+    let stayed = false;
+    let raised = false;
     let shots = new Set();
     const once = async (p, name) => {
       if (!shots.has(name)) {
@@ -125,8 +127,16 @@ async function main() {
         if (await bidBtn.isVisible().catch(() => false)) {
           const noBids = await p.getByText('NO BIDS YET').isVisible().catch(() => false);
           await once(p, `04-bidding-${i === 2 ? 'mobile' : 'desktop'}`);
+          const stay = p.getByRole('button', { name: /^STAY \d+/ });
           if (noBids) await bidBtn.click();
-          else await p.getByRole('button', { name: 'PASS' }).click();
+          else if (!stayed && (await stay.isVisible().catch(() => false))) {
+            stayed = true;
+            await once(p, `04-bidding-stay-${i === 2 ? 'mobile' : 'desktop'}`);
+            await stay.click();
+          } else if (!raised) {
+            raised = true; // the first challenger outbids once so the holder gets to "stay"
+            await bidBtn.click();
+          } else await p.getByRole('button', { name: 'PASS' }).click();
           acted = true;
           break;
         }

@@ -68,8 +68,17 @@ export function buildPlayerView(
       passed: [...state.bidding.passed],
       minBid: state.rules.minBid,
       maxBid: state.rules.maxBid,
-      nextMinBid: nextMinBid(state),
+      nextMinBid: nextMinBid(state, viewer),
       mustBid: viewer !== null && mustBid(state, viewer),
+      style: state.rules.biddingStyle,
+      holder: state.rules.biddingStyle === 'duel' ? state.bidding.holder : null,
+      challenger: state.rules.biddingStyle === 'duel' ? state.bidding.challenger : null,
+      waiting: state.rules.biddingStyle === 'duel' ? state.bidding.order.slice(state.bidding.nextEntrant) : [],
+      canStay:
+        state.rules.biddingStyle === 'duel' &&
+        viewer !== null &&
+        state.bidding.highestBid !== null &&
+        nextMinBid(state, viewer) === state.bidding.highestBid,
     },
     contract: state.contract ? { ...state.contract } : null,
     trump,
