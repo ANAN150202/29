@@ -145,7 +145,7 @@ async function main() {
         if (await next.isVisible().catch(() => false)) {
           roundsDone++;
           await once(p, `08-results-${roundsDone}`);
-          const matchOver = await p.getByText('MATCH OVER').isVisible().catch(() => false);
+          const matchOver = await p.getByRole('heading', { name: 'MATCH OVER' }).isVisible().catch(() => false);
           log(`round ${roundsDone} finished${matchOver ? ' — MATCH OVER' : ''}`);
           if (matchOver) {
             for (let k = 0; k < 4; k++) await shot(pages[k], `09-match-over-${k}`);
