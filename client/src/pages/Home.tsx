@@ -2,6 +2,7 @@ import { BookOpen, LogIn, Plus } from 'lucide-react';
 import { useState } from 'react';
 import type { RoomSettings } from '@shared/types';
 import { Card } from '../components/Card';
+import { MuteButton } from '../components/MuteButton';
 import { SettingsForm } from '../components/SettingsForm';
 import { loadNickname, type GameSocketApi } from '../game/useGameSocket';
 
@@ -38,6 +39,9 @@ export function Home({ api, onShowRules }: { api: GameSocketApi; onShowRules: ()
 
   return (
     <div className="screen home">
+      <div className="home__mute">
+        <MuteButton />
+      </div>
       <div className="home__cards" aria-hidden>
         <Card card={{ id: 'a', suit: 'spades', rank: 'J' }} size="lg" className="home__card home__card--1" />
         <Card card={{ id: 'b', suit: 'hearts', rank: '9' }} size="lg" className="home__card home__card--2" />

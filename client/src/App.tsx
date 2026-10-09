@@ -3,6 +3,7 @@ import { ConnectionBadge } from './components/ConnectionBadge';
 import { RulesModal } from './components/RulesModal';
 import { Toasts } from './components/Toasts';
 import { useGameSocket } from './game/useGameSocket';
+import { useGameSounds } from './game/useGameSounds';
 import { Game } from './pages/Game';
 import { Home } from './pages/Home';
 import { Lobby } from './pages/Lobby';
@@ -10,6 +11,7 @@ import { Lobby } from './pages/Lobby';
 export function App() {
   const api = useGameSocket();
   const [rulesOpen, setRulesOpen] = useState(false);
+  useGameSounds(api.room, api.game, api.lastResolved, api.toasts);
   const { room, game, rejoining, connection } = api;
 
   let page: JSX.Element;

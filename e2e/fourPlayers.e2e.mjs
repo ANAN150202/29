@@ -63,6 +63,15 @@ async function main() {
     for (let i = 0; i < 4; i++) {
       const { width, height, ...rest } = viewports[i];
       const ctx = await browser.newContext({ viewport: { width, height }, ...rest });
+      // Count synthesized sound effects so we can assert the audio actually plays.
+      await ctx.addInitScript(() => {
+        window.__sfxCount = 0;
+        const orig = AudioScheduledSourceNode.prototype.start;
+        AudioScheduledSourceNode.prototype.start = function (...args) {
+          window.__sfxCount++;
+          return orig.apply(this, args);
+        };
+      });
       const page = await ctx.newPage();
       page.on('pageerror', (e) => errors.push(`${names[i]}: ${e.message}`));
       page.on('console', (m) => m.type() === 'error' && errors.push(`${names[i]} console: ${m.text()}`));
@@ -202,6 +211,9 @@ async function main() {
     const scores = await Promise.all(pages.map((p) => p.locator('.results__table .score-big').allInnerTexts()));
     if (new Set(scores.map((s) => s.join('/'))).size !== 1) throw new Error(`score mismatch ${JSON.stringify(scores)}`);
     log('all clients agree on match score', scores[0].join(' : '));
+    const sfx = await Promise.all(pages.map((p) => p.evaluate(() => window.__sfxCount)));
+    log('sound effects started per player', sfx.join(', '));
+    if (sfx.some((n) => n < 20)) throw new Error('expected sound effects on every client');
     if (errors.length) throw new Error(`browser errors:\n${errors.join('\n')}`);
     log('PASS');
   } finally {

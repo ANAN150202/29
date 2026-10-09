@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { PublicPlayer, Seat } from '@shared/types';
 import { Avatar } from '../components/Avatar';
 import { ConnectionBadge } from '../components/ConnectionBadge';
+import { MuteButton } from '../components/MuteButton';
 import { SettingsForm } from '../components/SettingsForm';
 import { positionOf, TEAM_NAME } from '../game/labels';
 import type { GameSocketApi } from '../game/useGameSocket';
@@ -45,6 +46,7 @@ export function Lobby({ api, onShowRules }: { api: GameSocketApi; onShowRules: (
         <button type="button" className="icon-btn" onClick={onShowRules} aria-label="Rules">
           <BookOpen size={18} />
         </button>
+        <MuteButton />
         <ConnectionBadge state={api.connection} />
       </header>
 

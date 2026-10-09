@@ -4,6 +4,7 @@ import type { Card as CardT, Rank, Seat, Suit } from '@shared/types';
 import { BiddingPanel } from '../components/BiddingPanel';
 import { Card } from '../components/Card';
 import { ConnectionBadge } from '../components/ConnectionBadge';
+import { MuteButton } from '../components/MuteButton';
 import { GameLog } from '../components/GameLog';
 import { PlayerSeat } from '../components/PlayerSeat';
 import { ResultsPanel } from '../components/ResultsPanel';
@@ -13,6 +14,7 @@ import { TrumpIndicator } from '../components/TrumpIndicator';
 import { TrumpSelector } from '../components/TrumpSelector';
 import { TurnTimer } from '../components/TurnTimer';
 import { positionOf, SUIT_NAME } from '../game/labels';
+import { sfx } from '../game/sound';
 import type { GameSocketApi } from '../game/useGameSocket';
 
 // Display-only ordering for the local hand (the server decides all card strength).
@@ -49,7 +51,10 @@ export function Game({ api, onShowRules }: { api: GameSocketApi; onShowRules: ()
     if (selected === id) {
       setSelected(null);
       actions.playCard(id);
-    } else setSelected(id);
+    } else {
+      sfx.select();
+      setSelected(id);
+    }
   };
 
   const turnName = game.turn !== null ? room.seats[game.turn]?.nickname : null;
@@ -91,6 +96,7 @@ export function Game({ api, onShowRules }: { api: GameSocketApi; onShowRules: ()
         <button type="button" className="icon-btn" onClick={confirmLeave} aria-label="Leave room">
           <DoorOpen size={18} />
         </button>
+        <MuteButton />
         <ConnectionBadge state={api.connection} />
       </header>
 
@@ -120,7 +126,7 @@ export function Game({ api, onShowRules }: { api: GameSocketApi; onShowRules: ()
             <p className="play-status__text" role="status">
               {myTurn && <Hand size={16} className="gold" aria-hidden />} {status}
             </p>
-            {myTurn && <TurnTimer leftMs={game.turnTimeLeftMs} totalMs={game.turnTimeLimitMs} resetKey={game.seq} />}
+            {myTurn && <TurnTimer leftMs={game.turnTimeLeftMs} totalMs={game.turnTimeLimitMs} resetKey={game.seq} tickSound />}
             <div className="play-status__buttons">
               {game.canRevealTrump && (
                 <button type="button" className="btn btn--gold" onClick={() => actions.revealTrump()}>

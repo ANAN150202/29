@@ -321,6 +321,12 @@ button.card {
   position: relative;
   overflow: hidden;
 }
+.home__mute {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 2;
+}
 .home__header {
   text-align: center;
   z-index: 1;
