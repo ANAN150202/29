@@ -21,7 +21,8 @@ export function ResultsPanel({
   if (!r) return null;
   const matchOver = game.phase === 'matchEnd';
   const bidderTeam = r.contract.team;
-  const roundWinner: TeamId = r.success ? bidderTeam : ((1 - bidderTeam) as TeamId);
+  const actingTeam: TeamId = r.kind === 'single' && r.single ? ((r.single.seat % 2) as TeamId) : bidderTeam;
+  const roundWinner: TeamId = r.success ? actingTeam : ((1 - actingTeam) as TeamId);
   const teamPlayers = (t: TeamId) => `${seats[t]?.nickname ?? '—'} & ${seats[t + 2]?.nickname ?? '—'}`;
   const myTeam = game.mySeat !== null ? game.mySeat % 2 : null;
   const iWon = matchOver && myTeam === game.matchWinner;
@@ -41,11 +42,19 @@ export function ResultsPanel({
           {myTeam !== null && <p className="pixel-heading pixel-heading--sm">{iWon ? 'VICTORY!' : 'GOOD GAME!'}</p>}
         </div>
       )}
-      <div className={`result-banner ${r.success ? 'is-success' : 'is-fail'}`}>
-        <b>{seats[r.contract.bidder]?.nickname}</b> ({TEAM_NAME[bidderTeam]}) bid {r.contract.bid}
-        {r.contract.target !== r.contract.bid && <> → target {r.contract.target}</>} and{' '}
-        <b>{r.success ? 'MADE IT' : 'WENT DOWN'}</b> with {r.bidderTeamPoints} points.
-      </div>
+      {r.kind === 'single' && r.single ? (
+        <div className={`result-banner ${r.success ? 'is-success' : 'is-fail'}`}>
+          <b>{seats[r.single.seat]?.nickname}</b>'s <b>SINGLE HAND</b>{' '}
+          {r.success ? <b>WON ALL 8 TRICKS!</b> : <>was <b>CAUGHT</b> after {r.single.tricksWon} trick{r.single.tricksWon === 1 ? '' : 's'}.</>}
+        </div>
+      ) : (
+        <div className={`result-banner ${r.success ? 'is-success' : 'is-fail'}`}>
+          <b>{seats[r.contract.bidder]?.nickname}</b> ({TEAM_NAME[bidderTeam]}) bid {r.contract.bid}
+          {r.contract.target !== r.contract.bid && <> → target {r.contract.target}</>}
+          {r.multiplier > 1 && <> ({['', 'DOUBLED', 'REDOUBLED', 'SET'][r.contract.doubleLevel ?? 0]} ×{r.multiplier})</>} and{' '}
+          <b>{r.success ? 'MADE IT' : 'WENT DOWN'}</b> with {r.bidderTeamPoints} points.
+        </div>
+      )}
       <p className="center">
         <span className={`trump-chip ${r.reverseTrump ? 'trump-chip--reverse' : ''}`}>{trumpText(r.trumpSuit, r.reverseTrump)}</span>
       </p>

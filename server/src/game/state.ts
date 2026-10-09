@@ -4,6 +4,7 @@
  */
 import type {
   BidEntry,
+  DoublingCall,
   Card,
   Contract,
   LogEntry,
@@ -72,6 +73,18 @@ export interface GameState {
   matchScore: [number, number];
   pair: PairDeclaration | null;
 
+  doubling: {
+    stage: DoublingCall | null;
+    level: number;
+    pending: Seat[];
+    calls: { seat: Seat; call: DoublingCall }[];
+  };
+  single: {
+    declarer: Seat | null;
+    /** Players still deciding during the Single-Hand window. */
+    pending: Seat[];
+  };
+
   roundResult: RoundResult | null;
   roundHistory: RoundResult[];
   matchWinner: TeamId | null;
@@ -87,6 +100,10 @@ export type GameAction =
   | { type: 'revealTrump' }
   | { type: 'declarePair' }
   | { type: 'playCard'; cardId: string }
+  | { type: 'double'; stage: DoublingCall }
+  | { type: 'declineDouble' }
+  | { type: 'declareSingle' }
+  | { type: 'skipSingle' }
   | { type: 'nextRound' }
   | { type: 'rematch' };
 
@@ -107,6 +124,8 @@ export const PHASE_ACTIONS: Readonly<Record<Phase, readonly GameAction['type'][]
   dealing: [],
   bidding: ['bid', 'pass'],
   trumpSelection: ['chooseTrump'],
+  doubling: ['double', 'declineDouble'],
+  singleHand: ['declareSingle', 'skipSingle'],
   playing: ['playCard', 'revealTrump', 'declarePair'],
   trickResolution: ['declarePair'],
   roundEnd: ['nextRound'],

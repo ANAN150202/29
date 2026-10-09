@@ -48,6 +48,10 @@ export const schemas = {
   'game:revealTrump': gameBase,
   'game:declarePair': gameBase,
   'game:playCard': gameBase.extend({ cardId: z.string().min(3).max(16) }),
+  'game:double': gameBase.extend({ stage: z.enum(['double', 'redouble', 'set']) }),
+  'game:declineDouble': gameBase,
+  'game:declareSingle': gameBase,
+  'game:skipSingle': gameBase,
   'game:nextRound': gameBase,
   'game:rematch': gameBase,
 } as const;

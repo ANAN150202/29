@@ -2,6 +2,8 @@ import { BookOpen, DoorOpen, Eye, Hand, Heart, Megaphone, Trophy } from 'lucide-
 import { useEffect, useMemo, useState } from 'react';
 import type { Card as CardT, Rank, Seat, Suit } from '@shared/types';
 import { BiddingPanel } from '../components/BiddingPanel';
+import { DoublingPanel } from '../components/DoublingPanel';
+import { SingleHandPanel } from '../components/SingleHandPanel';
 import { Card } from '../components/Card';
 import { ConnectionBadge } from '../components/ConnectionBadge';
 import { MuteButton } from '../components/MuteButton';
@@ -68,6 +70,8 @@ export function Game({ api, onShowRules }: { api: GameSocketApi; onShowRules: ()
         : leadSuit && game.legalCardIds.every((id) => id.startsWith(leadSuit))
           ? `Your turn — follow ${SUIT_NAME[leadSuit]}.`
           : 'Your turn — play any card.';
+    } else if (game.single.declarer !== null && mySeat !== null && (game.single.declarer + 2) % 4 === mySeat) {
+      status = `You sit out — ${room.seats[game.single.declarer]?.nickname} plays a Single Hand.`;
     } else status = `Waiting for ${turnName}…`;
   } else if (game.phase === 'trickResolution') status = 'Collecting the trick…';
   else if (roundOver) status = game.phase === 'matchEnd' ? 'Match over!' : 'Round over.';
@@ -121,6 +125,8 @@ export function Game({ api, onShowRules }: { api: GameSocketApi; onShowRules: ()
       <section className="dock" aria-label="Actions">
         {game.phase === 'bidding' && <BiddingPanel game={game} seats={room.seats} actions={actions} />}
         {game.phase === 'trumpSelection' && <TrumpSelector game={game} seats={room.seats} actions={actions} />}
+        {game.phase === 'doubling' && <DoublingPanel game={game} seats={room.seats} actions={actions} />}
+        {game.phase === 'singleHand' && <SingleHandPanel game={game} seats={room.seats} actions={actions} />}
         {(game.phase === 'playing' || game.phase === 'trickResolution' || roundOver) && (
           <div className={`action-panel play-status ${myTurn ? 'is-my-turn' : ''}`}>
             <p className="play-status__text" role="status">

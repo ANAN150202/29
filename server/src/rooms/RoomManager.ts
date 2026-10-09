@@ -10,6 +10,7 @@ import { DEFAULT_RULESET_ID, getRuleset, RULESETS } from '../config/rulesConfig'
 import { secureRandomInt, type RandomIntFn } from '../game/deck';
 import {
   applyAction,
+  closeDeclarationWindow,
   createGame,
   getAutoAction,
   resolveTrick,
@@ -43,6 +44,8 @@ export interface RoomManagerOptions {
   vacantSeatDelayMs?: number;
   /** Override for the trick display time (tests use a small value). */
   trickDisplayMs?: number;
+  /** Override for the Double/Set and Single-Hand window length (tests). */
+  declarationWindowMs?: number;
   /** How long a computer player "thinks" before acting. */
   botDelayMs?: number;
   /** Auto-advance from the round-end screen after this long (when a turn timer is on). */
@@ -77,8 +80,9 @@ const hashToken = (token: string) => createHash('sha256').update(token).digest('
 export class RoomManager {
   readonly store: RoomStore;
   private readonly rng: RandomIntFn;
-  private readonly opts: Required<Omit<RoomManagerOptions, 'store' | 'rng' | 'trickDisplayMs'>> & {
+  private readonly opts: Required<Omit<RoomManagerOptions, 'store' | 'rng' | 'trickDisplayMs' | 'declarationWindowMs'>> & {
     trickDisplayMs?: number;
+    declarationWindowMs?: number;
   };
   /** socketId → membership */
   private sockets = new Map<string, { code: string; playerId: string }>();
@@ -97,6 +101,7 @@ export class RoomManager {
       roundEndAutoAdvanceMs: options.roundEndAutoAdvanceMs ?? 25_000,
       botDelayMs: options.botDelayMs ?? 900,
       trickDisplayMs: options.trickDisplayMs,
+      declarationWindowMs: options.declarationWindowMs,
       now: options.now ?? Date.now,
     };
   }
@@ -142,6 +147,8 @@ export class RoomManager {
     if (room.timers.turn) clearTimeout(room.timers.turn);
     if (room.timers.trick) clearTimeout(room.timers.trick);
     for (const t of room.timers.grace.values()) clearTimeout(t);
+    for (const t of room.timers.extra) clearTimeout(t);
+    room.timers.extra = [];
     room.timers.turn = null;
     room.timers.trick = null;
     room.timers.grace.clear();
@@ -183,7 +190,8 @@ export class RoomManager {
       seats: [null, null, null, null],
       players: new Map(),
       game: null,
-      timers: { turn: null, trick: null, grace: new Map() },
+      timers: { turn: null, trick: null, grace: new Map(), extra: [] },
+      window: null,
       turnDeadline: null,
       turnTimeLimitMs: null,
     };
@@ -483,7 +491,10 @@ export class RoomManager {
     if (player.recentActionIds.includes(meta.actionId)) {
       throw new RoomError('DUPLICATE_ACTION', 'This action was already processed.');
     }
-    if (meta.seq !== game.seq) {
+    // Double/Set and Single-Hand answers are simultaneous and seat-specific, so
+    // they are not rejected just because another player answered first.
+    const windowAction = ['double', 'declineDouble', 'declareSingle', 'skipSingle'].includes(action.type);
+    if (meta.seq !== game.seq && !windowAction) {
       this.sendGameState(room, player);
       throw new RoomError('STALE_ACTION', 'Your view was out of date and has been refreshed. Try again.');
     }
@@ -523,6 +534,8 @@ export class RoomManager {
   private clearTurnTimer(room: Room): void {
     if (room.timers.turn) clearTimeout(room.timers.turn);
     room.timers.turn = null;
+    for (const t of room.timers.extra) clearTimeout(t);
+    room.timers.extra = [];
     room.turnDeadline = null;
     room.turnTimeLimitMs = null;
   }
@@ -541,6 +554,12 @@ export class RoomManager {
 
     const seq = game.seq;
     const limitMs = room.settings.turnTimeLimitSec * 1000;
+
+    if (game.phase === 'doubling' || game.phase === 'singleHand') {
+      this.scheduleWindow(room);
+      return;
+    }
+    room.window = null;
 
     if (game.phase === 'roundEnd') {
       if (limitMs <= 0) return;
@@ -565,6 +584,37 @@ export class RoomManager {
     room.turnDeadline = vacant ? null : this.opts.now() + delay;
     room.turnTimeLimitMs = vacant ? null : delay;
     room.timers.turn = setTimeout(() => this.autoAct(room, seq, seat, null), delay);
+  }
+
+  /**
+   * Double/Set and Single-Hand windows: everyone pending decides at once.
+   * Bots answer after a short pause, vacated seats decline, and the window
+   * closes on its own when time runs out (its deadline does not reset when
+   * someone answers).
+   */
+  private scheduleWindow(room: Room): void {
+    const game = room.game!;
+    const key = `${game.round}:${game.phase}:${game.doubling.stage ?? ''}`;
+    if (room.window?.key !== key) {
+      const len = this.opts.declarationWindowMs ?? game.rules.declarationWindowMs;
+      room.window = { key, deadline: this.opts.now() + len, length: len };
+    }
+    const { deadline, length } = room.window;
+    room.turnDeadline = deadline;
+    room.turnTimeLimitMs = length;
+    const seq = game.seq;
+    const pending = game.phase === 'doubling' ? game.doubling.pending : game.single.pending;
+    for (const seat of pending) {
+      const pid = room.seats[seat];
+      const p = pid ? room.players.get(pid) : undefined;
+      if (p?.isBot) room.timers.extra.push(setTimeout(() => this.botAct(room, seq, seat), this.opts.botDelayMs));
+      else if (!p || p.vacated) room.timers.extra.push(setTimeout(() => this.autoAct(room, seq, seat, null), this.opts.vacantSeatDelayMs));
+    }
+    room.timers.turn = setTimeout(() => {
+      room.timers.turn = null;
+      if (room.game !== game || game.seq !== seq) return;
+      if (closeDeclarationWindow(game)) this.afterChange(room, []);
+    }, Math.max(0, deadline - this.opts.now()));
   }
 
   private autoAct(room: Room, seq: number, seat: Seat | null, fixed: GameAction | null): void {

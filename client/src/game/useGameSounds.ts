@@ -72,17 +72,27 @@ export function useGameSounds(room: RoomView | null, game: GameView | null, last
     }
     if (game.phase === 'trumpSelection' && prev.phase === 'bidding') setTimeout(sfx.bidWon, 180);
 
-    // Trump chosen → second half of the deal.
-    if (game.phase === 'playing' && prev.phase === 'trumpSelection') {
-      sfx.trumpChosen();
-      setTimeout(sfx.deal, 250);
-    }
+    // Trump chosen.
+    if (prev.phase === 'trumpSelection' && game.phase !== 'trumpSelection') sfx.trumpChosen();
+    // Last four cards dealt.
+    if (game.myHand.length === 8 && prev.myHand.length === 4) setTimeout(sfx.deal, 250);
 
     // Trump revealed during play.
     if (game.trump.revealed && !prev.trump.revealed && game.phase === 'playing' && prev.phase === 'playing') {
       if (game.trump.reverse) sfx.reverseReveal();
       else sfx.trumpReveal();
     }
+
+    // Double / Redouble / Set.
+    if (game.doubling.calls.length > prev.doubling.calls.length) {
+      const call = game.doubling.calls[game.doubling.calls.length - 1].call;
+      sfx[call]();
+    }
+    // Single Hand declared.
+    if (game.single.declarer !== null && prev.single.declarer === null) sfx.single();
+    // A decision window just opened for me.
+    const myWindow = (g: GameView) => g.doubling.canCall || (me !== null && g.phase === 'singleHand' && g.single.pending.includes(me));
+    if (myWindow(game) && !myWindow(prev)) setTimeout(sfx.yourTurn, 250);
 
     // Pair declared.
     if (game.pair && !prev.pair) sfx.pair();

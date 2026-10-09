@@ -132,6 +132,10 @@ export function registerSocketHandlers(io: IO, options: HandlerOptions = {}): Ro
     on('game:revealTrump', (p) => act(p, { type: 'revealTrump' }), true);
     on('game:declarePair', (p) => act(p, { type: 'declarePair' }), true);
     on('game:playCard', (p) => act(p, { type: 'playCard', cardId: p.cardId }), true);
+    on('game:double', (p) => act(p, { type: 'double', stage: p.stage }), true);
+    on('game:declineDouble', (p) => act(p, { type: 'declineDouble' }), true);
+    on('game:declareSingle', (p) => act(p, { type: 'declareSingle' }), true);
+    on('game:skipSingle', (p) => act(p, { type: 'skipSingle' }), true);
     on('game:nextRound', (p) => act(p, { type: 'nextRound' }), true);
     on('game:rematch', (p) => act(p, { type: 'rematch' }), true);
 

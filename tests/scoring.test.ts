@@ -3,7 +3,7 @@ import type { Contract, Seat, TrickRecord } from '@shared/types';
 import { CLASSIC_RULES } from '../server/src/config/rulesConfig';
 import { applyAction, canDeclarePair, getLegalCards, resolveTrick } from '../server/src/game/engine';
 import { applyGamePoints, countTeamCardPoints, countTeamTricks, detectMatchWinner, evaluateContract } from '../server/src/game/scoring';
-import { act, c, newMatch, riggedPlaying } from './helpers';
+import { act, c, newMatch, riggedPlaying, settle } from './helpers';
 
 const trick = (winner: Seat, codes: string[]): TrickRecord => ({
   index: 0,
@@ -63,6 +63,8 @@ describe('match score', () => {
           applyAction(state, seat, { type: 'revealTrump' }); // allowed only when void; ignore failures
         }
         act(state, seat, { type: 'playCard', cardId: getLegalCards(state, seat)[0].id });
+      } else if (state.phase === 'doubling' || state.phase === 'singleHand') {
+        settle(state);
       } else if (state.phase === 'trickResolution') {
         resolveTrick(state);
       } else if (state.phase === 'roundEnd') {

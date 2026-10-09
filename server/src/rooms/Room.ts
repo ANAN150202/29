@@ -38,7 +38,11 @@ export interface Room {
     turn: NodeJS.Timeout | null;
     trick: NodeJS.Timeout | null;
     grace: Map<string, NodeJS.Timeout>;
+    /** Bot / vacated-seat answers during a decision window. */
+    extra: NodeJS.Timeout[];
   };
+  /** The currently open Double/Set or Single-Hand window and its fixed deadline. */
+  window: { key: string; deadline: number; length: number } | null;
   turnDeadline: number | null;
   turnTimeLimitMs: number | null;
 }

@@ -22,6 +22,15 @@ function botMatch(rules = CLASSIC_RULES, seed = 1) {
       act(state, 0, { type: 'nextRound' });
       continue;
     }
+    if (state.phase === 'doubling' || state.phase === 'singleHand') {
+      const pending = state.phase === 'doubling' ? state.doubling.pending : state.single.pending;
+      const seat = pending[0];
+      const action = chooseBotAction(buildPlayerView(state, seat), rules.reverseTrumpScope);
+      expect(action).not.toBeNull();
+      expect(applyAction(state, seat, action!, rng), JSON.stringify(action)).toMatchObject({ ok: true });
+      actions++;
+      continue;
+    }
     const seat = state.turn as Seat;
     const action = chooseBotAction(buildPlayerView(state, seat), rules.reverseTrumpScope);
     expect(action, `bot at seat ${seat} had no action in ${state.phase}`).not.toBeNull();

@@ -92,3 +92,29 @@ export function legalCards(
 }
 
 export const nextSeat = (seat: Seat): Seat => ((seat + 1) % 4) as Seat;
+
+/**
+ * Single Hand "conceivably lose" rule: can this 8-card hand lose at least
+ * one trick in some deal of the unseen cards? (No trump; the declarer leads
+ * every trick; the declarer's partner sits out.)
+ *
+ * For each suit the declarer holds n cards d1 > d2 > … > dn. In the worst
+ * case one opponent holds all u = 8 − n unseen cards of that suit and keeps
+ * its highest card c until the declarer's k-th lead, k = min(u, n). The
+ * declarer can lose iff c beats d_k. A hand that cannot lose in any suit is
+ * "invincible" and may not declare a Single Hand.
+ */
+export function singleHandCanLose(hand: readonly Card[]): boolean {
+  const suits = new Set(hand.map((c) => c.suit));
+  for (const suit of suits) {
+    const mine = hand
+      .filter((c) => c.suit === suit)
+      .map((c) => normalRankStrength(c.rank))
+      .sort((a, b) => b - a);
+    const unseen = NORMAL_RANK_ORDER.map(normalRankStrength).filter((s) => !mine.includes(s));
+    if (unseen.length === 0) continue;
+    const k = Math.min(unseen.length, mine.length);
+    if (Math.max(...unseen) > mine[k - 1]) return true;
+  }
+  return false;
+}

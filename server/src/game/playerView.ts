@@ -14,6 +14,7 @@ import {
   leadSuit,
   mustBid,
   nextMinBid,
+  singleHandBlockedReason,
 } from './engine';
 import type { GameState } from './state';
 
@@ -39,7 +40,7 @@ export function buildPlayerView(
     state.phase === 'trickResolution'
       ? determineTrickWinner(
           state.currentTrick.cards,
-          state.trumpRevealed ? state.trumpSuit : null,
+          state.trumpRevealed && state.single.declarer === null ? state.trumpSuit : null,
           state.reverseTrump,
           state.rules.reverseTrumpScope,
         )
@@ -94,6 +95,28 @@ export function buildPlayerView(
       leader: state.currentTrick.leader,
       leadSuit: leadSuit(state),
       cards: state.currentTrick.cards.map((pc) => ({ seat: pc.seat, card: { ...pc.card } })),
+    },
+    doubling: {
+      stage: state.doubling.stage,
+      level: state.doubling.level,
+      multiplier: state.contract?.multiplier ?? 1,
+      pending: [...state.doubling.pending],
+      calls: state.doubling.calls.map((c) => ({ ...c })),
+      canCall: state.phase === 'doubling' && viewer !== null && state.doubling.pending.includes(viewer),
+    },
+    single: {
+      declarer: state.single.declarer,
+      pending: [...state.single.pending],
+      canDeclare:
+        state.phase === 'singleHand' &&
+        viewer !== null &&
+        state.single.pending.includes(viewer) &&
+        singleHandBlockedReason(state, viewer) === null,
+      blockedReason:
+        state.phase === 'singleHand' && viewer !== null && state.single.pending.includes(viewer)
+          ? singleHandBlockedReason(state, viewer)
+          : null,
+      points: state.rules.singleHandPoints,
     },
     trickWinner,
     lastTrick: lastTrick ? { ...lastTrick, cards: lastTrick.cards.map((pc) => ({ ...pc })) } : null,

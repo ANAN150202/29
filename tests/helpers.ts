@@ -1,7 +1,7 @@
 import type { Card, Rank, Seat, Suit } from '@shared/types';
 import { CLASSIC_RULES, OPEN_TRUMP_RULES, type RulesConfig } from '../server/src/config/rulesConfig';
 import { seededRandomInt } from '../server/src/game/deck';
-import { applyAction, createGame, startMatch } from '../server/src/game/engine';
+import { applyAction, closeDeclarationWindow, createGame, startMatch } from '../server/src/game/engine';
 import type { GameAction, GameState } from '../server/src/game/state';
 
 const SUIT_CODE: Record<string, Suit> = { C: 'clubs', D: 'diamonds', H: 'hearts', S: 'spades' };
@@ -58,5 +58,11 @@ export function riggedPlaying(opts: {
   state.phase = 'playing';
   state.turn = 0;
   state.currentTrick = { leader: 0, cards: [] };
+  return state;
+}
+
+/** Close any open Double/Set and Single-Hand windows (everyone declines). */
+export function settle(state: GameState): GameState {
+  while (state.phase === 'doubling' || state.phase === 'singleHand') closeDeclarationWindow(state);
   return state;
 }

@@ -7,7 +7,7 @@ import type {
   JoinResult,
   ServerToClientEvents,
 } from '@shared/events';
-import type { GameView, RoomSettings, RoomView, Seat, Suit, TrickRecord } from '@shared/types';
+import type { DoublingCall, GameView, RoomSettings, RoomView, Seat, Suit, TrickRecord } from '@shared/types';
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -221,6 +221,10 @@ export function useGameSocket() {
       pass: () => gameAction('game:pass'),
       chooseTrump: (suit: Suit, reverse: boolean) => gameAction('game:chooseTrump', { suit, reverse }),
       revealTrump: () => gameAction('game:revealTrump'),
+      double: (stage: DoublingCall) => gameAction('game:double', { stage }),
+      declineDouble: () => gameAction('game:declineDouble'),
+      declareSingle: () => gameAction('game:declareSingle'),
+      skipSingle: () => gameAction('game:skipSingle'),
       declarePair: () => gameAction('game:declarePair'),
       playCard: (cardId: string) => gameAction('game:playCard', { cardId }),
       nextRound: () => gameAction('game:nextRound'),

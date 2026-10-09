@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CLASSIC_RULES, OPEN_TRUMP_RULES } from '../server/src/config/rulesConfig';
 import { applyAction, canRevealTrump, getLegalCards, resolveTrick } from '../server/src/game/engine';
 import { buildPlayerView } from '../server/src/game/playerView';
-import { act, newMatch, riggedPlaying } from './helpers';
+import { act, newMatch, riggedPlaying, settle } from './helpers';
 
 function toTrumpSelection(rules = CLASSIC_RULES, reverse = true) {
   const m = newMatch(rules, { reverse });
@@ -21,6 +21,7 @@ describe('trump selection', () => {
       error: { code: 'NOT_YOUR_TURN' },
     });
     act(state, 0, { type: 'chooseTrump', suit: 'spades', reverse: true });
+    settle(state);
     expect(state.trumpSuit).toBe('spades');
     expect(state.reverseTrump).toBe(true);
     expect(state.phase).toBe('playing');
@@ -38,6 +39,7 @@ describe('trump selection', () => {
   it('classic: concealed trump is visible to the bidder only', () => {
     const state = toTrumpSelection();
     act(state, 0, { type: 'chooseTrump', suit: 'hearts', reverse: false });
+    settle(state);
     expect(state.trumpRevealed).toBe(false);
     expect(buildPlayerView(state, 0).trump).toMatchObject({ suit: 'hearts', reverse: false, hiddenFromMe: false });
     for (const s of [1, 2, 3] as const) {
@@ -50,12 +52,14 @@ describe('trump selection', () => {
   it('open trump: trump is public immediately', () => {
     const state = toTrumpSelection(OPEN_TRUMP_RULES);
     act(state, 0, { type: 'chooseTrump', suit: 'clubs', reverse: true });
+    settle(state);
     expect(buildPlayerView(state, 2).trump).toMatchObject({ suit: 'clubs', reverse: true, revealed: true });
   });
 
   it('trump state stores suit and reverse flag separately', () => {
     const state = toTrumpSelection();
     act(state, 0, { type: 'chooseTrump', suit: 'diamonds', reverse: true });
+    settle(state);
     expect(state.trumpSuit).toBe('diamonds');
     expect(state.reverseTrump).toBe(true);
   });

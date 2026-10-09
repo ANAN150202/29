@@ -420,6 +420,62 @@
   text-align: center;
   color: var(--gold);
 }
+.doubling,
+.single-panel {
+  flex-direction: column;
+}
+.doubling__calls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 0;
+}
+.doubling__buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.call-chip {
+  display: inline-block;
+  margin-left: 6px;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  padding: 3px 5px;
+  background: var(--warn);
+  color: var(--ink);
+}
+.call-chip--redouble {
+  background: #ff7ae0;
+}
+.call-chip--set {
+  background: #ff4b4b;
+  color: #fff;
+}
+.btn--call {
+  --bg: var(--warn);
+  --fg: var(--ink);
+}
+.btn--call-redouble {
+  --bg: #ff7ae0;
+}
+.btn--call-set {
+  --bg: #ff4b4b;
+  --fg: #fff;
+}
+.btn--call-single {
+  --bg: #7fd3ff;
+}
+.badge--single {
+  background: #7fd3ff;
+  color: var(--ink);
+}
+.trump-ind--single {
+  background: #123b52;
+  color: #7fd3ff;
+  box-shadow: inset 0 0 0 3px #7fd3ff;
+}
 .duel {
   display: flex;
   align-items: center;

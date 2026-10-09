@@ -5,6 +5,13 @@ import { PixelSuit } from './PixelSuit';
 
 export function TrumpIndicator({ game, compact = false }: { game: GameView; compact?: boolean }) {
   const { trump } = game;
+  if (game.single.declarer !== null) {
+    return (
+      <div className="trump-ind trump-ind--single" title="Single Hand: no trump this round">
+        SINGLE HAND · NO TRUMP
+      </div>
+    );
+  }
   if (!game.contract || game.phase === 'bidding' || game.phase === 'trumpSelection') {
     return (
       <div className="trump-ind trump-ind--none">

@@ -43,7 +43,14 @@ export function PlayerSeat({
               </span>
             )}
             {game.dealer === seat && <span className="badge">DEAL</span>}
-            {isBidder && <span className="badge badge--gold">BID {game.contract!.target}</span>}
+            {isBidder && (
+              <span className="badge badge--gold">
+                BID {game.contract!.target}
+                {(game.contract!.multiplier ?? 1) > 1 && ` ×${game.contract!.multiplier}`}
+              </span>
+            )}
+            {game.single.declarer === seat && <span className="badge badge--single">SINGLE</span>}
+            {game.single.declarer !== null && (game.single.declarer + 2) % 4 === seat && <span className="badge badge--muted">SITS OUT</span>}
             {game.phase === 'bidding' && lastBid && (
               <span className={`badge ${lastBid.bid === null ? 'badge--muted' : ''}`}>{lastBid.bid === null ? 'PASS' : lastBid.stay ? `STAY ${lastBid.bid}` : lastBid.bid}</span>
             )}

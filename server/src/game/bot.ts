@@ -48,6 +48,30 @@ function decideTrump(v: GameView): GameAction {
   return { type: 'chooseTrump', suit: best.suit, reverse: best.reverse };
 }
 
+/**
+ * Double/Redouble/Set from the first four cards only. Opponents double when
+ * their own hand looks strong against a high bid; the bidder's team redoubles
+ * only with a hand well above the bid; Set needs an exceptional hand.
+ */
+function decideDoubling(v: GameView): GameAction {
+  const stage = v.doubling.stage!;
+  const est = estimateHand(v.myHand);
+  const bid = v.contract?.bid ?? 16;
+  const go =
+    (stage === 'double' && est >= 21 && bid >= 18) ||
+    (stage === 'redouble' && est >= bid + 4) ||
+    (stage === 'set' && est >= 24);
+  return go ? { type: 'double', stage } : { type: 'declineDouble' };
+}
+
+/** Bots only declare a Single Hand when every suit is nearly unbeatable. */
+function decideSingle(v: GameView): GameAction {
+  if (!v.single.canDeclare) return { type: 'skipSingle' };
+  const top = v.myHand.filter((c) => c.rank === 'J' || c.rank === '9').length;
+  const jacks = v.myHand.filter((c) => c.rank === 'J').length;
+  return jacks === 4 && top >= 6 ? { type: 'declareSingle' } : { type: 'skipSingle' };
+}
+
 interface TrickCtx {
   leadSuit: Suit;
   trumpSuit: Suit | null; // only when active (revealed)
@@ -131,6 +155,8 @@ function decidePlay(v: GameView, scope: ReverseTrumpScope): GameAction {
 /** The bot's next action for the view it was given, or null if it has nothing to do. */
 export function chooseBotAction(v: GameView, scope: ReverseTrumpScope = 'trumpSuitOnly'): GameAction | null {
   if (v.mySeat === null) return null;
+  if (v.phase === 'doubling') return v.doubling.canCall ? decideDoubling(v) : null;
+  if (v.phase === 'singleHand') return v.single.pending.includes(v.mySeat) ? decideSingle(v) : null;
   if (v.canDeclarePair) return { type: 'declarePair' };
   if (v.turn !== v.mySeat) return null;
   if (v.phase === 'bidding') return decideBid(v);

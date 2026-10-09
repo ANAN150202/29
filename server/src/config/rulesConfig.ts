@@ -92,6 +92,29 @@ export interface RulesConfig {
   /** Pair cannot push the target above this value. */
   pairMaxTarget: number;
 
+  // ── Double / Redouble / Set ──────────────────────────────────────────
+  /**
+   * After trump is chosen and BEFORE the last four cards are dealt, the
+   * opponents may Double, then the bidder's team may Redouble, then the
+   * opponents may Set. Each call multiplies the game points at stake.
+   */
+  doublingEnabled: boolean;
+  /** Game-point multiplier for [none, double, redouble, set]. */
+  doublingMultipliers: [number, number, number, number];
+
+  // ── Single Hand ──────────────────────────────────────────────────────
+  /**
+   * After all 8 cards are dealt, any player may declare a Single Hand: their
+   * partner sits out, they lead, there is no trump, and they must win all 8
+   * tricks. Not allowed with a hand that cannot conceivably lose a trick.
+   */
+  singleHandEnabled: boolean;
+  /** Game points won (or lost) by a Single Hand. Replaces the contract. */
+  singleHandPoints: number;
+
+  /** Milliseconds the Double/Set and Single-Hand decision windows stay open. */
+  declarationWindowMs: number;
+
   // ── Scoring ──────────────────────────────────────────────────────────
   /** Game points the bidding team gains when it makes its contract. */
   gamePointsForWin: number;
@@ -141,6 +164,11 @@ export const CLASSIC_RULES: RulesConfig = {
   pairValue: 4,
   pairMinTarget: 16,
   pairMaxTarget: 28,
+  doublingEnabled: true,
+  doublingMultipliers: [1, 2, 4, 6],
+  singleHandEnabled: true,
+  singleHandPoints: 3,
+  declarationWindowMs: 12_000,
   gamePointsForWin: 1,
   gamePointsForLoss: 1,
   targetScore: 6,

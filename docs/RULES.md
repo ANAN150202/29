@@ -110,6 +110,34 @@ The single source of truth for card strength is
 
 `trumpSuit` is passed as `null` while a concealed trump is unrevealed.
 
+## Double / Redouble / Set
+
+| Setting | Default | Config key |
+|---|---|---|
+| Enabled | yes | `doublingEnabled` |
+| Multipliers (none / double / redouble / set) | 1 / 2 / 4 / 6 | `doublingMultipliers` |
+| Decision window | 12 s | `declarationWindowMs` |
+
+* Decided **after trump is chosen and before the last four cards are dealt**: everyone has seen only their first four cards.
+* **Double:** either **opponent** of the bidder may double. Points at stake become ×2.
+* **Redouble:** after a double, either player of the **bidder's team** may redouble (×4).
+* **Set:** after a redouble, either **opponent** may say Set (×6).
+* Each step closes when both eligible players say No, or when the window times out. A late click for a step that is no longer open is rejected.
+* Scoring: the bidding team gains or loses `1 × multiplier`: ±1, ±2, ±4, ±6. With the default target of 6, a failed Set ends the match.
+
+## Single Hand
+
+| Setting | Default | Config key |
+|---|---|---|
+| Enabled | yes | `singleHandEnabled` |
+| Points | ±3 | `singleHandPoints` |
+
+* After **all eight cards are dealt**, before the first card is played, **any player** may declare a Single Hand. Everyone gets a short window to declare or skip; it closes when all four skip or time runs out.
+* The declarer's **partner sits out** (their cards are not played), the **declarer leads**, and there is **no trump**: the highest card of the suit led wins. Tricks have three cards.
+* The declarer must win **all 8 tricks**: **+3**. As soon as an opponent wins a trick the round ends: **−3**.
+* A Single Hand **replaces the contract and any Double/Redouble/Set** for that round.
+* **Conceivably-lose rule:** you may not declare with a hand that cannot possibly lose a trick. Checked suit by suit: if the declarer holds `n` cards of a suit and `u = 8 − n` are unseen, an opponent holding all `u` can keep its highest unseen card until the declarer's `min(u, n)`-th lead. The hand can be caught if that card outranks the declarer's `min(u, n)`-th highest card in that suit. If no suit can be caught, the hand is invincible and the declaration is refused.
+
 ## Pair (King + Queen of trump), enabled in `classic`
 
 | Setting | Default |
@@ -133,8 +161,6 @@ The single source of truth for card strength is
 
 These exist in some regions but are **not** part of any shipped ruleset. Adding one means adding a config flag plus engine support and tests:
 
-* Doubling / redoubling ("double", "re-double") of the contract.
-* A bonus for winning all eight tricks ("single hand" / "kot").
 * Annulling a hand for special holdings (e.g. no point cards, four jacks).
 * Restrictions on the bidder leading trump before it is revealed.
 * Partnership bidding conventions or bidding the "seventh card" as trump.

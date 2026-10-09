@@ -26,6 +26,10 @@ export type Phase =
   | 'dealing'
   | 'bidding'
   | 'trumpSelection'
+  /** Opponents may Double, bidder's team Redouble, opponents Set (seen only 4 cards). */
+  | 'doubling'
+  /** After all 8 cards: any player may declare a Single Hand. */
+  | 'singleHand'
   | 'playing'
   | 'trickResolution'
   | 'roundEnd'
@@ -106,6 +110,8 @@ export interface TrickRecord {
   trumpActive: boolean;
 }
 
+export type DoublingCall = 'double' | 'redouble' | 'set';
+
 export interface Contract {
   bidder: Seat;
   team: TeamId;
@@ -113,6 +119,10 @@ export interface Contract {
   bid: number;
   /** Current card-point target (bid adjusted by pair declarations). */
   target: number;
+  /** 0 = none, 1 = doubled, 2 = redoubled, 3 = set. */
+  doubleLevel?: number;
+  /** Game points won/lost are multiplied by this (1, 2, 4 or 6 by default). */
+  multiplier?: number;
 }
 
 export interface PairDeclaration {
@@ -124,6 +134,10 @@ export interface PairDeclaration {
 
 export interface RoundResult {
   round: number;
+  /** 'single' when a Single Hand replaced the contract. */
+  kind: 'contract' | 'single';
+  multiplier: number;
+  single: { seat: Seat; success: boolean; tricksWon: number } | null;
   contract: Contract;
   bidderTeamPoints: number;
   success: boolean;
@@ -199,6 +213,27 @@ export interface GameView {
     leader: Seat | null;
     leadSuit: Suit | null;
     cards: PlayedCard[];
+  };
+  doubling: {
+    /** Which call is currently open (null when the window is closed). */
+    stage: DoublingCall | null;
+    level: number;
+    multiplier: number;
+    /** Players who still have to decide on the open call. */
+    pending: Seat[];
+    calls: { seat: Seat; call: DoublingCall }[];
+    /** The viewer may make the open call right now. */
+    canCall: boolean;
+  };
+  single: {
+    declarer: Seat | null;
+    /** Players who still have to decide whether to declare (window open). */
+    pending: Seat[];
+    /** The viewer may declare a Single Hand right now. */
+    canDeclare: boolean;
+    /** Why the viewer may not declare, if they are pending but blocked. */
+    blockedReason: string | null;
+    points: number;
   };
   /** Server-determined winner of the completed trick shown during trickResolution. */
   trickWinner: Seat | null;

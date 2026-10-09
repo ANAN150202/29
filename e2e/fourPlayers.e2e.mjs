@@ -117,6 +117,7 @@ async function main() {
     let roundsDone = 0;
     let reloaded = false;
     let stayed = false;
+    let doubled = false;
     let raised = false;
     let shots = new Set();
     const once = async (p, name) => {
@@ -156,6 +157,26 @@ async function main() {
           await p.getByRole('radio', { name: /REVERSE TRUMP/ }).click();
           await once(p, `05-trump-select-${i === 2 ? 'mobile' : 'desktop'}`);
           await p.getByRole('button', { name: /CONFIRM REVERSE TRUMP: HEARTS/ }).click();
+          acted = true;
+          break;
+        }
+        // Double / Redouble / Set window
+        const doubleBtn = p.getByRole('button', { name: /^(DOUBLE|REDOUBLE|SET) ×\d/ });
+        if (await doubleBtn.isVisible().catch(() => false)) {
+          await once(p, `05b-doubling-${i === 2 ? 'mobile' : 'desktop'}`);
+          const label = await doubleBtn.innerText();
+          if (!doubled && /DOUBLE ×2/.test(label)) {
+            doubled = true;
+            await doubleBtn.click();
+          } else await p.getByRole('button', { name: 'NO', exact: true }).click();
+          acted = true;
+          break;
+        }
+        // Single Hand window
+        const skip = p.getByRole('button', { name: 'SKIP' });
+        if (await skip.isVisible().catch(() => false)) {
+          await once(p, `05c-single-${i === 2 ? 'mobile' : 'desktop'}`);
+          await skip.click();
           acted = true;
           break;
         }

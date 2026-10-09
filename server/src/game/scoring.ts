@@ -39,7 +39,8 @@ export function evaluateContract(
   const bidderTeamPoints = cardPoints[contract.team];
   const success = bidderTeamPoints >= contract.target;
   const gamePointsDelta: [number, number] = [0, 0];
-  gamePointsDelta[contract.team] = success ? rules.gamePointsForWin : -rules.gamePointsForLoss;
+  const m = contract.multiplier ?? 1;
+  gamePointsDelta[contract.team] = (success ? rules.gamePointsForWin : -rules.gamePointsForLoss) * m;
   return { success, bidderTeamPoints, gamePointsDelta };
 }
 

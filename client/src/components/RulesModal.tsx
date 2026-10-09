@@ -52,6 +52,21 @@ export function RulesModal({ onClose }: { onClose: () => void }) {
           <code>TRUMP: HEARTS</code>.
         </p>
 
+        <h3>Double · Redouble · Set</h3>
+        <p>
+          After trump is chosen — while everyone has seen only their first 4 cards — the <b>opponents</b> may say{' '}
+          <b>Double</b> (points ×2). The <b>bidder's team</b> may answer <b>Redouble</b> (×4), and then the opponents may
+          say <b>Set</b> (×6). A normal contract is worth ±1; doubled ±2, redoubled ±4, set ±6.
+        </p>
+
+        <h3>Single Hand</h3>
+        <p>
+          After all 8 cards are dealt, any player may declare a <b>Single Hand</b>: their partner sits out, they lead, and
+          there is <b>no trump</b>. Win all 8 tricks for <b>+3</b>; lose a single trick and it ends at once with{' '}
+          <b>−3</b>. It replaces the contract (and any doubles) for that round. You may not declare with a hand that cannot
+          possibly lose a trick — you must hold at least one card the opponents could catch.
+        </p>
+
         <h3>Playing</h3>
         <p>
           You must follow the lead suit if you can. The highest trump wins the trick; if no trump was played, the highest

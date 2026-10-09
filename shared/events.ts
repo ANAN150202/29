@@ -5,6 +5,7 @@
  * `game:actionAccepted` / `game:actionRejected` for game actions.
  */
 import type {
+  DoublingCall,
   GameView,
   RoomSettings,
   RoomView,
@@ -32,6 +33,7 @@ export type ErrorCode =
   | 'CANNOT_PASS'
   | 'CANNOT_REVEAL'
   | 'CANNOT_DECLARE_PAIR'
+  | 'CANNOT_DECLARE_SINGLE'
   | 'REVERSE_TRUMP_DISABLED'
   | 'DUPLICATE_ACTION'
   | 'STALE_ACTION'
@@ -98,6 +100,10 @@ export interface ClientToServerEvents {
   'game:revealTrump': (p: GameActionBase, ack: AckFn) => void;
   'game:declarePair': (p: GameActionBase, ack: AckFn) => void;
   'game:playCard': (p: GameActionBase & { cardId: string }, ack: AckFn) => void;
+  'game:double': (p: GameActionBase & { stage: DoublingCall }, ack: AckFn) => void;
+  'game:declineDouble': (p: GameActionBase, ack: AckFn) => void;
+  'game:declareSingle': (p: GameActionBase, ack: AckFn) => void;
+  'game:skipSingle': (p: GameActionBase, ack: AckFn) => void;
   'game:nextRound': (p: GameActionBase, ack: AckFn) => void;
   'game:rematch': (p: GameActionBase, ack: AckFn) => void;
   'game:sync': (p: { roomCode: string }, ack: AckFn) => void;

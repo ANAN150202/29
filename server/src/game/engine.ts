@@ -10,10 +10,10 @@
  *   playing ⇄ trickResolution → … → roundEnd → dealing → bidding …
  *                                          └→ matchEnd → (rematch) dealing …
  */
-import { cardId, teamOf, type Card, type LogEntry, type Seat, type Suit, type TeamId } from '@shared/types';
+import { cardId, teamOf, type Card, type DoublingCall, type LogEntry, type Seat, type Suit, type TeamId } from '@shared/types';
 import type { RulesConfig } from '../config/rulesConfig';
 import { createDeck, secureRandomInt, shuffle, sumPoints, type RandomIntFn } from './deck';
-import { determineTrickWinner, legalCards, nextSeat, normalRankStrength } from './rules';
+import { determineTrickWinner, legalCards, nextSeat, normalRankStrength, singleHandCanLose } from './rules';
 import { applyGamePoints, detectMatchWinner, evaluateContract } from './scoring';
 import {
   PHASE_ACTIONS,
@@ -23,6 +23,7 @@ import {
   type GameState,
 } from './state';
 import type { ErrorCode } from '@shared/events';
+import type { RoundResult } from '@shared/types';
 
 const HAND_SIZE_FIRST_DEAL = 4;
 const HAND_SIZE_SECOND_DEAL = 4;
@@ -72,6 +73,8 @@ export function createGame(opts: {
     cardPoints: [0, 0],
     matchScore: [0, 0],
     pair: null,
+    doubling: freshDoubling(),
+    single: { declarer: null, pending: [] },
     roundResult: null,
     roundHistory: [],
     matchWinner: null,
@@ -94,6 +97,12 @@ function freshBidding(dealer: Seat = 0): GameState['bidding'] {
     nextEntrant: 2,
   };
 }
+
+function freshDoubling(): GameState['doubling'] {
+  return { stage: null, level: 0, pending: [], calls: [] };
+}
+
+const partnerOf = (seat: Seat): Seat => ((seat + 2) % 4) as Seat;
 
 function log(state: GameState, text: string, kind: LogEntry['kind']): void {
   state.log.push({ id: ++state.logCounter, text, kind });
@@ -136,6 +145,8 @@ export function startRound(state: GameState, rng: RandomIntFn = secureRandomInt)
   state.tricksWon = [0, 0];
   state.cardPoints = [0, 0];
   state.pair = null;
+  state.doubling = freshDoubling();
+  state.single = { declarer: null, pending: [] };
   state.roundResult = null;
 
   dealCards(state, HAND_SIZE_FIRST_DEAL);
@@ -190,7 +201,7 @@ export function getLegalCards(state: GameState, seat: Seat): Card[] {
 }
 
 export function canRevealTrump(state: GameState, seat: Seat): boolean {
-  if (state.phase !== 'playing' || state.turn !== seat) return false;
+  if (state.phase !== 'playing' || state.turn !== seat || state.single.declarer !== null) return false;
   if (!state.rules.trumpConcealed || state.trumpRevealed || state.trumpSuit === null) return false;
   const lead = leadSuit(state);
   if (lead === null) return false;
@@ -198,7 +209,7 @@ export function canRevealTrump(state: GameState, seat: Seat): boolean {
 }
 
 export function canDeclarePair(state: GameState, seat: Seat): boolean {
-  if (!state.rules.pairEnabled || state.pair !== null) return false;
+  if (!state.rules.pairEnabled || state.pair !== null || state.single.declarer !== null) return false;
   if (state.phase !== 'playing' && state.phase !== 'trickResolution') return false;
   if (!state.trumpRevealed || state.trumpSuit === null || state.trumpRevealTrick === null) return false;
   const hand = state.hands[seat];
@@ -234,6 +245,14 @@ export function applyAction(
       return doDeclarePair(state, seat);
     case 'playCard':
       return doPlayCard(state, seat, action.cardId);
+    case 'double':
+      return doDouble(state, seat, action.stage);
+    case 'declineDouble':
+      return doDeclineDouble(state, seat);
+    case 'declareSingle':
+      return doDeclareSingle(state, seat);
+    case 'skipSingle':
+      return doSkipSingle(state, seat);
     case 'nextRound':
       state.dealer = nextSeat(state.dealer);
       return { ok: true, events: startRound(state, rng) };
@@ -337,7 +356,7 @@ function advanceBidTurn(state: GameState): void {
 function endBidding(state: GameState): EngineEvent[] {
   const bidder = state.bidding.highestBidder!;
   const bid = state.bidding.highestBid!;
-  state.contract = { bidder, team: teamOf(bidder), bid, target: bid };
+  state.contract = { bidder, team: teamOf(bidder), bid, target: bid, doubleLevel: 0, multiplier: state.rules.doublingMultipliers[0] };
   state.phase = 'trumpSelection';
   state.turn = bidder;
   log(state, `${state.names[bidder]} wins the bid at ${bid} and chooses trump.`, 'bid');
@@ -361,14 +380,129 @@ function doChooseTrump(state: GameState, seat: Seat, suit: Suit, reverse: boolea
     state.trumpRevealTrick = 0;
     log(state, `${state.names[seat]} declares ${trumpLabel(suit, reverse)}.`, 'trump');
   }
+  state.seq += 1;
+  if (state.rules.doublingEnabled) openDoubling(state, 'double');
+  else afterDoubling(state);
+  return { ok: true, events: [] };
+}
+
+// ─── Double / Redouble / Set ──────────────────────────────────────────────
+
+const DOUBLING_ORDER: DoublingCall[] = ['double', 'redouble', 'set'];
+const CALL_LABEL: Record<DoublingCall, string> = { double: 'DOUBLE', redouble: 'REDOUBLE', set: 'SET' };
+
+/** Seats allowed to make `call`: opponents double and set, the bidder's team redoubles. */
+function callersFor(state: GameState, call: DoublingCall): Seat[] {
+  const bidder = state.contract!.bidder;
+  return call === 'redouble' ? [bidder, partnerOf(bidder)] : [nextSeat(bidder), partnerOf(nextSeat(bidder))];
+}
+
+function openDoubling(state: GameState, stage: DoublingCall): void {
+  state.phase = 'doubling';
+  state.turn = null;
+  state.doubling.stage = stage;
+  state.doubling.pending = callersFor(state, stage);
+}
+
+function doDouble(state: GameState, seat: Seat, stage: DoublingCall): EngineResult {
+  const d = state.doubling;
+  if (d.stage !== stage) return fail('STALE_ACTION', 'That call is no longer open.');
+  if (!d.pending.includes(seat)) return fail('NOT_YOUR_TURN', `Only the ${stage === 'redouble' ? "bidder's team" : 'opponents'} can ${stage}.`);
+  d.level += 1;
+  d.calls.push({ seat, call: stage });
+  const contract = state.contract!;
+  contract.doubleLevel = d.level;
+  contract.multiplier = state.rules.doublingMultipliers[d.level];
+  log(state, `${state.names[seat]} says ${CALL_LABEL[stage]}! Points are now ×${contract.multiplier}.`, 'bid');
+  state.seq += 1;
+  const next = DOUBLING_ORDER[DOUBLING_ORDER.indexOf(stage) + 1];
+  if (next) openDoubling(state, next);
+  else afterDoubling(state);
+  return { ok: true, events: [] };
+}
+
+function doDeclineDouble(state: GameState, seat: Seat): EngineResult {
+  const d = state.doubling;
+  if (!d.pending.includes(seat)) return fail('NOT_YOUR_TURN', 'You have nothing to decide right now.');
+  d.pending = d.pending.filter((s) => s !== seat);
+  state.seq += 1;
+  if (d.pending.length === 0) afterDoubling(state);
+  return { ok: true, events: [] };
+}
+
+/** Deal the last four cards, then open the Single-Hand window (or start play). */
+function afterDoubling(state: GameState): void {
+  state.doubling.stage = null;
+  state.doubling.pending = [];
   state.phase = 'dealing';
   dealCards(state, HAND_SIZE_SECOND_DEAL);
+  if (state.rules.singleHandEnabled) {
+    state.phase = 'singleHand';
+    state.turn = null;
+    const order: Seat[] = [];
+    for (let i = 1; i <= 4; i++) order.push(((state.dealer + i) % 4) as Seat);
+    state.single.pending = order;
+  } else startPlay(state, nextSeat(state.dealer));
+}
+
+// ─── Single Hand ──────────────────────────────────────────────────────────
+
+export function singleHandBlockedReason(state: GameState, seat: Seat): string | null {
+  if (!singleHandCanLose(state.hands[seat])) {
+    return 'Your hand cannot lose a trick — a Single Hand needs at least one card that could be caught.';
+  }
+  return null;
+}
+
+function doDeclareSingle(state: GameState, seat: Seat): EngineResult {
+  if (!state.single.pending.includes(seat)) return fail('NOT_YOUR_TURN', 'The Single-Hand window is closed for you.');
+  const blocked = singleHandBlockedReason(state, seat);
+  if (blocked) return fail('CANNOT_DECLARE_SINGLE', blocked);
+  state.single = { declarer: seat, pending: [] };
+  log(state, `${state.names[seat]} declares SINGLE HAND! ${state.names[partnerOf(seat)]} sits out — no trump.`, 'trump');
+  state.seq += 1;
+  startPlay(state, seat);
+  return { ok: true, events: [] };
+}
+
+function doSkipSingle(state: GameState, seat: Seat): EngineResult {
+  if (!state.single.pending.includes(seat)) return fail('NOT_YOUR_TURN', 'You have nothing to decide right now.');
+  state.single.pending = state.single.pending.filter((s) => s !== seat);
+  state.seq += 1;
+  if (state.single.pending.length === 0) startPlay(state, nextSeat(state.dealer));
+  return { ok: true, events: [] };
+}
+
+/**
+ * Close an open Double/Set or Single-Hand window: everyone who has not
+ * answered declines. Called by the room layer when the window times out.
+ */
+export function closeDeclarationWindow(state: GameState): boolean {
+  if (state.phase === 'doubling') {
+    state.seq += 1;
+    afterDoubling(state);
+    return true;
+  }
+  if (state.phase === 'singleHand') {
+    state.single.pending = [];
+    state.seq += 1;
+    startPlay(state, nextSeat(state.dealer));
+    return true;
+  }
+  return false;
+}
+
+function startPlay(state: GameState, leader: Seat): void {
   state.phase = 'playing';
-  const leader = nextSeat(state.dealer);
   state.currentTrick = { leader, cards: [] };
   state.turn = leader;
-  state.seq += 1;
-  return { ok: true, events: [] };
+}
+
+const isSingle = (state: GameState) => state.single.declarer !== null;
+/** Next seat in play order, skipping a Single-Hand declarer's partner. */
+function nextPlaySeat(state: GameState, seat: Seat): Seat {
+  const s = nextSeat(seat);
+  return isSingle(state) && s === partnerOf(state.single.declarer!) ? nextSeat(s) : s;
 }
 
 function doRevealTrump(state: GameState, seat: Seat): EngineResult {
@@ -425,11 +559,11 @@ function doPlayCard(state: GameState, seat: Seat, id: string): EngineResult {
   if (state.mustPlayTrumpSeat === seat) state.mustPlayTrumpSeat = null;
   log(state, `${state.names[seat]} plays ${card.rank} of ${SUIT_NAME[card.suit]}.`, 'play');
 
-  if (state.currentTrick.cards.length === 4) {
+  if (state.currentTrick.cards.length === (isSingle(state) ? 3 : 4)) {
     state.phase = 'trickResolution';
     state.turn = null;
   } else {
-    state.turn = nextSeat(seat);
+    state.turn = nextPlaySeat(state, seat);
   }
   state.seq += 1;
   return { ok: true, events: [] };
@@ -443,7 +577,7 @@ function doPlayCard(state: GameState, seat: Seat, id: string): EngineResult {
 export function resolveTrick(state: GameState): EngineEvent[] {
   if (state.phase !== 'trickResolution') throw new Error('No trick to resolve');
   const cards = state.currentTrick.cards;
-  const trumpActive = state.trumpRevealed;
+  const trumpActive = state.trumpRevealed && !isSingle(state);
   const winner = determineTrickWinner(
     cards,
     trumpActive ? state.trumpSuit : null,
@@ -466,7 +600,8 @@ export function resolveTrick(state: GameState): EngineEvent[] {
   log(state, `${state.names[winner]} wins trick ${trick.index + 1} (${points} pts).`, 'trick');
 
   const events: EngineEvent[] = [{ type: 'trickResolved', trick }];
-  if (state.completedTricks.length === TRICKS_PER_ROUND) {
+  const singleLost = isSingle(state) && winner !== state.single.declarer;
+  if (singleLost || state.completedTricks.length === TRICKS_PER_ROUND) {
     events.push(...finishRound(state));
   } else {
     state.phase = 'playing';
@@ -479,10 +614,24 @@ export function resolveTrick(state: GameState): EngineEvent[] {
 
 function finishRound(state: GameState): EngineEvent[] {
   const contract = state.contract!;
-  const evaln = evaluateContract(contract, state.cardPoints, state.rules);
+  const single = state.single.declarer;
+  let evaln = evaluateContract(contract, state.cardPoints, state.rules);
+  let singleResult: RoundResult['single'] = null;
+  if (single !== null) {
+    // A Single Hand replaces the contract (and any doubles) for this round.
+    const tricks = state.completedTricks.filter((t) => t.winner === single).length;
+    const success = tricks === TRICKS_PER_ROUND;
+    const delta: [number, number] = [0, 0];
+    delta[teamOf(single)] = success ? state.rules.singleHandPoints : -state.rules.singleHandPoints;
+    evaln = { success, bidderTeamPoints: state.cardPoints[teamOf(single)], gamePointsDelta: delta };
+    singleResult = { seat: single, success, tricksWon: tricks };
+  }
   state.matchScore = applyGamePoints(state.matchScore, evaln.gamePointsDelta);
-  const result = {
+  const result: RoundResult = {
     round: state.round,
+    kind: single !== null ? 'single' : 'contract',
+    multiplier: single !== null ? 1 : contract.multiplier ?? 1,
+    single: singleResult,
     contract: { ...contract },
     bidderTeamPoints: evaln.bidderTeamPoints,
     success: evaln.success,
@@ -497,11 +646,15 @@ function finishRound(state: GameState): EngineEvent[] {
   state.roundHistory.push(result);
   state.turn = null;
   state.currentTrick = { leader: null, cards: [] };
-  log(
-    state,
-    `${state.names[contract.bidder]}'s team ${evaln.success ? 'made' : 'failed'} ${contract.target} with ${evaln.bidderTeamPoints} points.`,
-    'round',
-  );
+  if (single !== null) {
+    log(state, `${state.names[single]}'s Single Hand ${evaln.success ? 'succeeds — all 8 tricks!' : 'is caught!'}`, 'round');
+  } else {
+    log(
+      state,
+      `${state.names[contract.bidder]}'s team ${evaln.success ? 'made' : 'failed'} ${contract.target} with ${evaln.bidderTeamPoints} points.`,
+      'round',
+    );
+  }
   const events: EngineEvent[] = [{ type: 'roundFinished', result }];
   const winner = detectMatchWinner(state.matchScore, state.rules);
   if (winner !== null) {
@@ -540,6 +693,8 @@ export function getAutoAction(state: GameState, seat: Seat): GameAction | null {
     const suit = suits.reduce((best, s) => (score(s) > score(best) ? s : best), suits[0]);
     return { type: 'chooseTrump', suit, reverse: false };
   }
+  if (state.phase === 'doubling' && state.doubling.pending.includes(seat)) return { type: 'declineDouble' };
+  if (state.phase === 'singleHand' && state.single.pending.includes(seat)) return { type: 'skipSingle' };
   if (state.phase === 'playing' && state.turn === seat) {
     const legal = getLegalCards(state, seat);
     const sorted = legal

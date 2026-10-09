@@ -43,7 +43,7 @@ describe('open bidding', () => {
     expect(state.turn).toBe(1);
     act(state, 1, { type: 'pass' });
     expect(state.phase).toBe('trumpSelection');
-    expect(state.contract).toEqual({ bidder: 0, team: 0, bid: 20, target: 20 });
+    expect(state.contract).toMatchObject({ bidder: 0, team: 0, bid: 20, target: 20 });
     expect(state.turn).toBe(0);
     expect(state.bidding.history).toHaveLength(6);
   });
@@ -143,7 +143,7 @@ describe('duel bidding (default)', () => {
     expect(s.turn).toBe(3);
     act(s, 3, { type: 'pass' });
     expect(s.phase).toBe('trumpSelection');
-    expect(s.contract).toEqual({ bidder: 1, team: 1, bid: 19, target: 19 });
+    expect(s.contract).toMatchObject({ bidder: 1, team: 1, bid: 19, target: 19 });
   });
 
   it('if the second player passes, the partner duels the first player', () => {

@@ -148,6 +148,23 @@ export const sfx = {
   trickWon: () => seq([N.G5, N.C6], 0.06, 0.09),
   /** The other team takes the trick. */
   trickLost: () => seq([N.E4, N.C4], 0.07, 0.09, { wave: 'triangle', vol: 0.2 }),
+  /** Double: two hard hits. */
+  double: () => {
+    tone(N.C4, 0, 0.1, { wave: 'sawtooth', vol: 0.1 });
+    tone(N.G4, 0.12, 0.16, { wave: 'sawtooth', vol: 0.1 });
+  },
+  /** Redouble: three rising hits. */
+  redouble: () => seq([N.C4, N.G4, N.C5], 0.1, 0.12, { wave: 'sawtooth', vol: 0.1 }),
+  /** Set: dramatic four-hit stinger ending high. */
+  set: () => {
+    seq([N.C4, N.E4, N.G4, N.C5], 0.08, 0.1, { wave: 'sawtooth', vol: 0.1 });
+    tone(N.C6, 0.34, 0.35, { vol: 0.12, slideTo: N.G6 });
+  },
+  /** Single Hand declared: bold solo fanfare. */
+  single: () => {
+    seq([N.G4, N.C5, N.E5, N.G5], 0.06, 0.07);
+    tone(N.C6, 0.26, 0.3, { vol: 0.13 });
+  },
   /** Pair (K+Q) declared. */
   pair: () => seq([N.A5, N.C6, N.A5, N.E6], 0.06, 0.06),
   /** Your team won the round. */

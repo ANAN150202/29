@@ -176,6 +176,11 @@ async function step(bySeat: (s: number) => TestClient, players: TestClient[]): P
     expect(legal.length).toBeGreaterThan(0);
     const res = await c.gameAction('game:playCard', { cardId: legal[0] });
     expect(res).toMatchObject({ ok: true });
+  } else if (st.phase === 'doubling' || st.phase === 'singleHand') {
+    const pending = st.phase === 'doubling' ? st.doubling.pending : st.single.pending;
+    const c = bySeat(pending[0]);
+    const res = await c.gameAction(st.phase === 'doubling' ? 'game:declineDouble' : 'game:skipSingle');
+    expect(res).toMatchObject({ ok: true });
   } else if (st.phase === 'roundEnd') {
     const res = await any.gameAction('game:nextRound');
     expect(res.ok).toBe(true);
@@ -363,7 +368,11 @@ describe('computer players', () => {
     let guard = 0;
     while (me.state!.phase !== 'roundEnd' && me.state!.phase !== 'matchEnd' && guard++ < 500) {
       const st = me.state!;
-      if (st.turn === 0 && ['bidding', 'trumpSelection', 'playing'].includes(st.phase)) {
+      if (st.doubling.canCall) {
+        expect(await me.gameAction('game:declineDouble')).toMatchObject({ ok: true });
+      } else if (st.phase === 'singleHand' && st.single.pending.includes(0)) {
+        expect(await me.gameAction('game:skipSingle')).toMatchObject({ ok: true });
+      } else if (st.turn === 0 && ['bidding', 'trumpSelection', 'playing'].includes(st.phase)) {
         let r;
         if (st.phase === 'bidding') r = await me.gameAction(st.bidding.highestBid === null ? 'game:bid' : 'game:pass', { amount: 16 });
         else if (st.phase === 'trumpSelection') r = await me.gameAction('game:chooseTrump', { suit: 'spades', reverse: false });
@@ -478,6 +487,25 @@ describe('reliability', () => {
     const ghost = await client('ghost');
     const again = await ghost.emit<JoinResult>('room:join', { roomCode: code, nickname: 'x', sessionToken: victim.token });
     expect(again).toMatchObject({ ok: false, error: { code: 'MATCH_IN_PROGRESS' } });
+  });
+
+  it('Double/Set and Single-Hand windows close by themselves; simultaneous answers are accepted', async () => {
+    await app.close();
+    await startServer({ declarationWindowMs: 400 });
+    const { players, bySeat } = await startedRoom();
+    while (players[0].state!.phase === 'bidding' || players[0].state!.phase === 'trumpSelection') await step(bySeat, players);
+    expect(players[0].state!.phase).toBe('doubling');
+    const st = players[0].state!;
+    expect(st.turnTimeLimitMs).toBe(400);
+    // Both opponents answer "no" at the same moment with the same seq.
+    const [a, b] = st.doubling.pending.map(bySeat);
+    const [ra, rb] = await Promise.all([a.gameAction('game:declineDouble'), b.gameAction('game:declineDouble')]);
+    expect(ra).toMatchObject({ ok: true });
+    expect(rb).toMatchObject({ ok: true });
+    await players[0].waitFor(() => players[0].state!.phase === 'singleHand', 'single window');
+    expect(players[0].state!.myHand).toHaveLength(8);
+    // Nobody answers the Single-Hand window: it times out into normal play.
+    await players[0].waitFor(() => players[0].state!.phase === 'playing', 'window timeout', 3000);
   });
 
   it('turn timer auto-acts for an idle player', async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CARD_POINTS } from '../server/src/config/rulesConfig';
 import { createDeck, parseCardId, seededRandomInt, shuffle, sumPoints } from '../server/src/game/deck';
 import { applyAction } from '../server/src/game/engine';
-import { newMatch } from './helpers';
+import { newMatch, settle } from './helpers';
 
 describe('deck', () => {
   it('has exactly 32 unique cards, 8 per suit', () => {
@@ -55,6 +55,10 @@ describe('deck', () => {
     }
     expect(state.phase).toBe('trumpSelection');
     expect(applyAction(state, first, { type: 'chooseTrump', suit: 'hearts', reverse: false }).ok).toBe(true);
+    // Double/Redouble/Set is decided on the first four cards only.
+    expect(state.phase).toBe('doubling');
+    expect(state.hands.map((h) => h.length)).toEqual([4, 4, 4, 4]);
+    settle(state);
     expect(state.hands.map((h) => h.length)).toEqual([8, 8, 8, 8]);
     expect(state.deck).toHaveLength(0);
     const all = state.hands.flat().map((c) => c.id);

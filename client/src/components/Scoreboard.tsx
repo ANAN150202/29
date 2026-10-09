@@ -49,6 +49,16 @@ export function Scoreboard({ game, seats }: { game: GameView; seats: (PublicPlay
           <b className="gold">{game.contract.target}</b>
           {game.contract.target !== game.contract.bid && <> (bid {game.contract.bid})</>} · has{' '}
           <b>{game.cardPoints[game.contract.team]}</b>
+          {(game.contract.multiplier ?? 1) > 1 && (
+            <span className={`call-chip call-chip--${['', 'double', 'redouble', 'set'][game.contract.doubleLevel ?? 0]}`}>
+              {['', 'DOUBLED', 'REDOUBLED', 'SET'][game.contract.doubleLevel ?? 0]} ×{game.contract.multiplier}
+            </span>
+          )}
+        </p>
+      )}
+      {game.single.declarer !== null && (
+        <p className="contract-line">
+          <b>{seats[game.single.declarer]?.nickname}</b> is playing a <b className="gold">SINGLE HAND</b> (±{game.single.points}) — must win every trick.
         </p>
       )}
       {game.pair && (
