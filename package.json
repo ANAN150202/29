@@ -1,0 +1,31 @@
+{
+  "name": "29-royale",
+  "version": "1.0.0",
+  "private": true,
+  "description": "29 Royale — retro online multiplayer 29 (Twenty-Nine) card game",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c yellow,cyan \"npm:dev -w server\" \"npm:dev -w client\"",
+    "build": "npm run build -w client && npm run build -w server",
+    "start": "npm run start -w server",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p server/tsconfig.json --noEmit && tsc -p client/tsconfig.json --noEmit && tsc -p tests/tsconfig.json --noEmit",
+    "e2e": "node e2e/fourPlayers.e2e.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "concurrently": "^9.1.0",
+    "playwright": "^1.56.1",
+    "socket.io-client": "^4.8.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
