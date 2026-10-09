@@ -11,6 +11,19 @@
 
 ---
 
+## 🎮 Play now (free hosting, ~5 minutes)
+
+1. Sign in at <https://render.com> with your GitHub account (free).
+2. Click **New → Blueprint**, pick the `29` repository and the branch that contains `render.yaml`, then click **Apply**.
+3. Wait for the build to finish. Render gives you a URL such as `https://29-royale-xxxx.onrender.com`.
+4. Open it, enter a nickname, click **Create Room**, and send the invite link to three friends.
+
+The free plan sleeps after about 15 minutes without visitors, so the first visit after a break takes up to a minute to wake. Games in progress are lost when it sleeps or redeploys.
+
+**Same Wi-Fi only?** On any computer with Node.js 20+: `npm install && npm run build && npm start`, then everyone opens `http://<that-computer's-IP>:3001`.
+
+---
+
 ## Quick start
 
 Requirements: **Node.js 20+** and npm 10+.

@@ -1,0 +1,19 @@
+# Render Blueprint: deploys 29 Royale as one free web service
+# (Node server that also serves the built client; WebSockets supported).
+services:
+  - type: web
+    name: 29-royale
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+        value: "1"
