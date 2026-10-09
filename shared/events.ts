@@ -102,7 +102,8 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   'room:created': (room: RoomView) => void;
   'room:updated': (room: RoomView) => void;
-  'room:closed': (p: { reason: string }) => void;
+  /** `evicted`: this tab was superseded by the same player in another tab/device. */
+  'room:closed': (p: { reason: string; evicted?: boolean }) => void;
   'game:started': (p: { round: number }) => void;
   'game:state': (state: GameView) => void;
   'game:actionAccepted': (p: { actionId: string; seq: number }) => void;

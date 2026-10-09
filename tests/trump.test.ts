@@ -100,6 +100,18 @@ describe('concealed trump reveal', () => {
     expect(buildPlayerView(state, 3).trump).toMatchObject({ suit: 'hearts', revealed: true });
   });
 
+  it('a revealer holding no trump may play any card and is not told to play trump', () => {
+    const state = riggedPlaying({
+      hands: ['JS 9S AS 10S KS QS 8S 7S', 'JC 9C AC 10C KC QC 8C 7C', hands[2], hands[3]],
+      trump: 'hearts',
+      rules: CLASSIC_RULES,
+    });
+    act(state, 0, { type: 'playCard', cardId: 'spades-7' });
+    act(state, 1, { type: 'revealTrump' });
+    expect(getLegalCards(state, 1)).toHaveLength(8);
+    expect(buildPlayerView(state, 1).mustPlayTrump).toBe(false);
+  });
+
   it('cannot reveal while holding the lead suit', () => {
     const state = riggedPlaying({ hands, trump: 'hearts', rules: CLASSIC_RULES });
     act(state, 0, { type: 'playCard', cardId: 'spades-7' });

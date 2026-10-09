@@ -38,6 +38,7 @@ export interface Room {
     grace: Map<string, NodeJS.Timeout>;
   };
   turnDeadline: number | null;
+  turnTimeLimitMs: number | null;
 }
 
 export class RoomError extends Error {

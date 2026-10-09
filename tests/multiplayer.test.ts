@@ -4,6 +4,7 @@ import { io as ioClient, type Socket } from 'socket.io-client';
 import type { Ack, ClientToServerEvents, JoinResult, ServerToClientEvents } from '@shared/events';
 import type { GameView, RoomView } from '@shared/types';
 import { createApp, type App, type AppOptions } from '../server/src/app';
+import { seededRandomInt } from '../server/src/game/deck';
 
 type CSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -17,6 +18,7 @@ class TestClient {
   events: { name: string; payload: unknown }[] = [];
   token = '';
   closedReason: string | null = null;
+  evicted = false;
   private listeners: (() => void)[] = [];
 
   constructor(
@@ -36,6 +38,7 @@ class TestClient {
     });
     this.socket.on('room:closed', (p) => {
       this.closedReason = p.reason;
+      this.evicted = !!p.evicted;
       this.notify();
     });
     for (const name of [
@@ -317,9 +320,11 @@ describe('match flow', () => {
   });
 
   it('plays a complete match to the end with all clients synchronized, then rematches', async () => {
+    await app.close();
+    await startServer({ rng: seededRandomInt(2024) }); // deterministic deals
     const { players, bySeat } = await startedRoom();
     let guard = 0;
-    while (players[0].state!.phase !== 'matchEnd' && guard++ < 3000) {
+    while (players[0].state!.phase !== 'matchEnd' && guard++ < 20_000) {
       if (players[0].state!.phase === 'trickResolution') {
         const seq = players[0].state!.seq;
         await players[0].waitFor(() => players[0].state!.seq > seq, 'trick resolution');
@@ -371,6 +376,7 @@ describe('reliability', () => {
     const res = await tab2.emit<JoinResult>('room:join', { roomCode: code, nickname: 'Bea', sessionToken: original.token });
     expect(res.ok).toBe(true);
     await original.waitFor(() => original.closedReason !== null, 'eviction');
+    expect(original.evicted).toBe(true);
     expect(tab2.room!.seats.filter(Boolean)).toHaveLength(4);
     expect(tab2.room!.mySeat).toBe(original.room!.mySeat);
     // Old socket can no longer act for the seat.
@@ -408,8 +414,9 @@ describe('reliability', () => {
   it('turn timer auto-acts for an idle player', async () => {
     const { players } = await startedRoom({ turnTimeLimitSec: 20 });
     const st = players[0].state!;
-    expect(st.turnDeadline).toBeGreaterThan(Date.now());
-    expect(st.turnDeadline! - Date.now()).toBeLessThanOrEqual(20_000);
+    expect(st.turnTimeLimitMs).toBe(20_000);
+    expect(st.turnTimeLeftMs).toBeGreaterThan(15_000);
+    expect(st.turnTimeLeftMs).toBeLessThanOrEqual(20_000);
   });
 
   it('rate-limits room creation per client', async () => {
@@ -419,6 +426,16 @@ describe('reliability', () => {
     expect((await c.emit('room:create', { nickname: 'a' })).ok).toBe(true);
     expect((await c.emit('room:create', { nickname: 'a' })).ok).toBe(true);
     expect(await c.emit('room:create', { nickname: 'a' })).toMatchObject({ ok: false, error: { code: 'RATE_LIMITED' } });
+  });
+
+  it('rate-limits event floods and repeated invalid actions per socket', async () => {
+    await app.close();
+    await startServer({ eventLimit: { limit: 5, windowMs: 60_000 }, invalidActionLimit: { limit: 3, windowMs: 60_000 } });
+    const flood = await client('flood');
+    const results = await Promise.all(Array.from({ length: 8 }, () => flood.emit('room:join', { roomCode: 'NOPE1', nickname: 'x' })));
+    const codes = results.map((r) => (r.ok ? 'ok' : r.error.code));
+    expect(codes.slice(0, 3)).toEqual(['ROOM_NOT_FOUND', 'ROOM_NOT_FOUND', 'ROOM_NOT_FOUND']);
+    expect(codes.slice(4)).toEqual(['RATE_LIMITED', 'RATE_LIMITED', 'RATE_LIMITED', 'RATE_LIMITED']);
   });
 
   it('cleans up abandoned rooms', async () => {

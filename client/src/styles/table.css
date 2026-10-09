@@ -1,0 +1,898 @@
+/* ─── game layout ──────────────────────────────────────────────────────── */
+.game {
+  display: grid;
+  gap: 10px;
+  height: 100dvh;
+  padding: 8px 12px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'top top'
+    'table side'
+    'dock side'
+    'hand side';
+}
+.game > .topbar {
+  grid-area: top;
+}
+.table-wrap {
+  grid-area: table;
+  min-height: 0;
+  display: flex;
+}
+.dock {
+  grid-area: dock;
+  min-width: 0;
+}
+.hand {
+  grid-area: hand;
+  min-width: 0;
+}
+.side {
+  grid-area: side;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+}
+
+/* ─── wooden table & felt ──────────────────────────────────────────────── */
+.table {
+  flex: 1;
+  padding: 14px;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 2px, transparent 2px 22px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 9px),
+    var(--wood);
+  box-shadow:
+    inset 0 0 0 4px var(--wood-dark),
+    inset 0 0 0 8px var(--wood-light),
+    inset 0 0 0 10px var(--wood-dark),
+    0 6px 0 rgba(0, 0, 0, 0.6);
+  clip-path: polygon(0 8px, 8px 8px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 8px), 0 calc(100% - 8px));
+  display: flex;
+}
+.felt {
+  position: relative;
+  flex: 1;
+  min-height: 300px;
+  background:
+    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.08), transparent 60%),
+    repeating-conic-gradient(var(--felt) 0 25%, #215f3b 0 50%) 0 0 / 4px 4px;
+  box-shadow:
+    inset 0 0 0 3px var(--felt-dark),
+    inset 0 0 40px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.felt::after {
+  content: '29';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-pixel);
+  font-size: 64px;
+  color: rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+/* ─── seats ────────────────────────────────────────────────────────────── */
+.seat {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 46%;
+}
+.seat--north {
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.seat--south {
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.seat--east {
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.seat--west {
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.seat__plate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
+  background: rgba(27, 18, 11, 0.88);
+  box-shadow: inset 0 0 0 2px var(--wood-light);
+  clip-path: var(--notch);
+  min-width: 0;
+}
+.seat.team-0 .seat__plate {
+  box-shadow:
+    inset 0 0 0 2px var(--wood-light),
+    inset 4px 0 0 2px var(--team-red);
+}
+.seat.team-1 .seat__plate {
+  box-shadow:
+    inset 0 0 0 2px var(--wood-light),
+    inset 4px 0 0 2px var(--team-blue);
+}
+.seat--turn .seat__plate {
+  background: rgba(70, 50, 12, 0.95);
+  animation: turn-pulse 0.8s steps(2) infinite alternate;
+}
+@keyframes turn-pulse {
+  to {
+    box-shadow:
+      inset 0 0 0 3px var(--gold),
+      inset 4px 0 0 3px var(--gold);
+  }
+}
+.seat__info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.seat__name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 19px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+.seat__you {
+  color: var(--muted);
+}
+.seat__badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.seat__hand {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding-right: 4px;
+}
+.seat__back {
+  margin-left: -22px;
+}
+.seat__back:first-child {
+  margin-left: 0;
+}
+.seat__count {
+  margin-left: 6px;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: var(--cream);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+.seat--east .seat__back,
+.seat--west .seat__back {
+  margin-left: -26px;
+}
+.seat--east .seat__back:first-child,
+.seat--west .seat__back:first-child {
+  margin-left: 0;
+}
+
+/* ─── turn timer ───────────────────────────────────────────────────────── */
+.turn-timer {
+  position: relative;
+  width: 120px;
+  height: 12px;
+  background: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--wood-light);
+}
+.turn-timer__bar {
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.25s steps(2);
+}
+.turn-timer--low .turn-timer__bar {
+  background: #ff6b5b;
+}
+.turn-timer__text {
+  position: absolute;
+  right: -34px;
+  top: -4px;
+  font-size: 17px;
+}
+
+/* ─── trick area ───────────────────────────────────────────────────────── */
+.trick {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 210px;
+  height: 200px;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+.trick__slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transition:
+    transform 0.45s steps(6),
+    opacity 0.45s steps(6);
+}
+.trick__slot--south {
+  transform: translate(-50%, -20%);
+}
+.trick__slot--north {
+  transform: translate(-50%, -80%);
+}
+.trick__slot--east {
+  transform: translate(0%, -50%) rotate(4deg);
+}
+.trick__slot--west {
+  transform: translate(-100%, -50%) rotate(-4deg);
+}
+.trick--collect-south .trick__slot {
+  transform: translate(-50%, 160%) scale(0.6);
+  opacity: 0;
+}
+.trick--collect-north .trick__slot {
+  transform: translate(-50%, -260%) scale(0.6);
+  opacity: 0;
+}
+.trick--collect-east .trick__slot {
+  transform: translate(220%, -50%) scale(0.6);
+  opacity: 0;
+}
+.trick--collect-west .trick__slot {
+  transform: translate(-320%, -50%) scale(0.6);
+  opacity: 0;
+}
+.played-from-south {
+  animation: from-south 0.25s steps(4);
+}
+.played-from-north {
+  animation: from-north 0.25s steps(4);
+}
+.played-from-east {
+  animation: from-east 0.25s steps(4);
+}
+.played-from-west {
+  animation: from-west 0.25s steps(4);
+}
+@keyframes from-south {
+  from {
+    transform: translateY(140px);
+  }
+}
+@keyframes from-north {
+  from {
+    transform: translateY(-140px);
+  }
+}
+@keyframes from-east {
+  from {
+    transform: translateX(160px);
+  }
+}
+@keyframes from-west {
+  from {
+    transform: translateX(-160px);
+  }
+}
+.trick__banner {
+  position: absolute;
+  left: 50%;
+  bottom: -28px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  padding: 6px 8px;
+  background: var(--gold);
+  color: var(--ink);
+  z-index: 10;
+  animation: toast-in 0.2s steps(3);
+}
+.trick__hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+/* ─── trump indicator ──────────────────────────────────────────────────── */
+.trump-ind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  line-height: 1.2;
+  background: var(--ink);
+  clip-path: var(--notch);
+  box-shadow: inset 0 0 0 2px var(--wood-light);
+}
+.trump-ind--none {
+  color: var(--muted);
+}
+.trump-ind--hidden {
+  color: var(--cream);
+  box-shadow: inset 0 0 0 2px var(--muted);
+}
+.trump-ind--normal {
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 3px var(--gold);
+}
+.trump-ind--normal.is-red .trump-ind__suit {
+  color: var(--suit-red);
+}
+.trump-ind--reverse {
+  background: repeating-linear-gradient(135deg, #3b1450 0 6px, #4d1d66 6px 12px);
+  color: #ffe08a;
+  box-shadow: inset 0 0 0 3px #ff7ae0;
+  animation: reverse-flash 1.2s steps(2) infinite;
+}
+.trump-ind--reverse .trump-ind__suit {
+  transform: rotate(180deg);
+}
+.trump-ind--reverse.is-red .trump-ind__suit {
+  color: #ff8b8b;
+}
+@keyframes reverse-flash {
+  50% {
+    box-shadow: inset 0 0 0 3px #ffe08a;
+  }
+}
+.trump-ind__secret {
+  font-size: 7px;
+  padding: 2px 4px;
+  background: var(--ink);
+  color: var(--gold);
+}
+.trump-chip {
+  display: inline-block;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  padding: 6px 8px;
+  background: var(--cream);
+  color: var(--ink);
+}
+.trump-chip--reverse {
+  background: #4d1d66;
+  color: #ffe08a;
+}
+
+/* ─── dock (actions) ───────────────────────────────────────────────────── */
+.action-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--panel);
+  box-shadow:
+    inset 0 0 0 2px var(--wood-light),
+    inset 0 0 0 4px var(--panel-2);
+  min-height: 62px;
+}
+.bidding__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+}
+.bidding__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.stepper__value {
+  font-family: var(--font-pixel);
+  font-size: 18px;
+  min-width: 48px;
+  text-align: center;
+  color: var(--gold);
+}
+.bid-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 17px;
+  color: var(--muted);
+  width: 100%;
+  justify-content: center;
+}
+.bid-history .is-pass {
+  opacity: 0.7;
+}
+
+.trump-select {
+  flex-direction: column;
+}
+.trump-select__suits {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  width: min(520px, 100%);
+}
+.suit-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: 0;
+  background: var(--cream);
+  cursor: pointer;
+  clip-path: var(--notch);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+}
+.suit-btn.is-red {
+  color: var(--suit-red);
+}
+.suit-btn.is-black {
+  color: var(--suit-black);
+}
+.suit-btn small {
+  font-family: var(--font-label);
+  font-size: 15px;
+  color: #6b5a3a;
+}
+.suit-btn.is-selected {
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    inset 0 0 0 6px var(--gold);
+  transform: translateY(-3px);
+}
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: min(520px, 100%);
+}
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border: 0;
+  background: var(--panel-2);
+  cursor: pointer;
+  clip-path: var(--notch);
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  box-shadow: inset 0 0 0 2px var(--wood-light);
+}
+.mode-btn small {
+  font-family: var(--font-label);
+  font-size: 17px;
+  color: var(--muted);
+}
+.mode-btn.is-selected {
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 4px var(--gold);
+}
+.mode-btn.is-selected small {
+  color: #6b5a3a;
+}
+.mode-btn--reverse.is-selected {
+  background: #4d1d66;
+  color: #ffe08a;
+  box-shadow: inset 0 0 0 4px #ff7ae0;
+}
+.mode-btn--reverse.is-selected small {
+  color: #ffd1f4;
+}
+.mode-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.play-status {
+  justify-content: space-between;
+}
+.play-status.is-my-turn {
+  box-shadow:
+    inset 0 0 0 3px var(--gold),
+    inset 0 0 0 5px var(--panel-2);
+}
+.play-status__text {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 21px;
+}
+.play-status__buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.play-status .turn-timer {
+  margin-right: 36px;
+}
+
+/* ─── hand ─────────────────────────────────────────────────────────────── */
+.hand {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 20px 8px 6px;
+  min-height: 124px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+}
+.deal-in {
+  animation: deal-in 0.35s steps(5) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes deal-in {
+  from {
+    transform: translateY(-160px) rotate(-12deg);
+    opacity: 0;
+  }
+}
+
+/* ─── side panel ───────────────────────────────────────────────────────── */
+.scoreboard table,
+.results__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 19px;
+}
+.scoreboard th,
+.scoreboard td,
+.results__table th,
+.results__table td {
+  padding: 4px 4px;
+  text-align: center;
+}
+.scoreboard thead th,
+.results__table thead th {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--muted);
+}
+.scoreboard tbody th,
+.results__table tbody th {
+  text-align: left;
+  font-weight: normal;
+}
+.scoreboard tbody th small,
+.results__table tbody th small {
+  display: block;
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scoreboard tr.is-mine th {
+  color: var(--gold);
+}
+.score-big {
+  font-family: var(--font-pixel);
+  font-size: 12px;
+}
+.score-track {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 2px;
+  margin-top: 8px;
+}
+.score-track__cell {
+  height: 10px;
+  background: var(--ink);
+  position: relative;
+}
+.score-track__cell.is-zero {
+  background: var(--wood-light);
+}
+.score-track__cell.has-red::before,
+.score-track__cell.has-blue::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.score-track__cell.has-red::before {
+  background: var(--team-red);
+  bottom: 50%;
+}
+.score-track__cell.has-blue::after {
+  background: var(--team-blue);
+  top: 50%;
+}
+.contract-line {
+  margin: 8px 0 0;
+  font-size: 19px;
+}
+.last-trick {
+  padding: 8px;
+}
+.last-trick__cards {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 8px;
+}
+.last-trick__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+  max-width: 60px;
+  overflow: hidden;
+}
+.game-log {
+  flex: 1;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+}
+.game-log ol {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  font-size: 18px;
+  max-height: 340px;
+}
+.game-log li {
+  padding: 2px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.07);
+}
+.log--trump {
+  color: #ffd1f4;
+}
+.log--trick {
+  color: var(--gold);
+}
+.log--round,
+.log--system {
+  color: var(--cream);
+}
+.log--play {
+  color: var(--muted);
+}
+
+/* ─── results & victory ────────────────────────────────────────────────── */
+.result-banner {
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 20px;
+  text-align: center;
+}
+.result-banner.is-success {
+  background: rgba(95, 174, 90, 0.2);
+  box-shadow: inset 0 0 0 2px var(--green);
+}
+.result-banner.is-fail {
+  background: rgba(224, 123, 57, 0.18);
+  box-shadow: inset 0 0 0 2px var(--warn);
+}
+.results__table tr.is-winner th {
+  color: var(--gold);
+}
+.results__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 14px;
+}
+.victory {
+  position: relative;
+  text-align: center;
+  padding: 14px 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  background: radial-gradient(circle, rgba(232, 184, 74, 0.25), transparent 70%);
+}
+.victory .pixel-heading {
+  font-size: 15px;
+  animation: blink 0.9s steps(2, start) 4;
+}
+.victory__sparkles i {
+  position: absolute;
+  bottom: -10px;
+  left: calc(var(--i) * 5.5%);
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  animation: sparkle 1.8s steps(9) infinite;
+  animation-delay: calc(var(--i) * -0.17s);
+}
+.victory__sparkles i:nth-child(3n) {
+  background: var(--team-red);
+}
+.victory__sparkles i:nth-child(3n + 1) {
+  background: var(--team-blue);
+}
+@keyframes sparkle {
+  to {
+    transform: translateY(-160px);
+    opacity: 0;
+  }
+}
+
+/* ─── responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 1000px) {
+  .game {
+    height: auto;
+    min-height: 100dvh;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto;
+    grid-template-areas:
+      'top'
+      'table'
+      'dock'
+      'hand'
+      'side';
+  }
+  .table-wrap {
+    height: clamp(330px, 52dvh, 520px);
+  }
+  .side {
+    overflow: visible;
+  }
+  .game-log ol {
+    max-height: 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  .screen.game {
+    padding: 6px 6px 16px;
+    gap: 6px;
+  }
+  .hide-sm {
+    display: none;
+  }
+  .topbar {
+    gap: 6px;
+  }
+  .trump-ind {
+    font-size: 7px;
+    padding: 5px 6px;
+  }
+  .table {
+    padding: 8px;
+  }
+  .table-wrap {
+    height: clamp(320px, 50dvh, 440px);
+  }
+  .felt::after {
+    font-size: 40px;
+  }
+  .seat {
+    max-width: 48%;
+  }
+  .seat__plate {
+    padding: 4px 6px 4px 6px;
+    gap: 5px;
+  }
+  .seat__plate .avatar {
+    width: 24px;
+    height: 24px;
+  }
+  .seat__name {
+    font-size: 16px;
+    max-width: 82px;
+  }
+  .seat--east,
+  .seat--west {
+    top: 42%;
+  }
+  .seat__hand .card--sm {
+    --w: 24px;
+    --h: 34px;
+    --px: 2px;
+  }
+  .seat .seat__back {
+    margin-left: -18px;
+  }
+  .seat .seat__back:first-child {
+    margin-left: 0;
+  }
+  /* Side seats: a single card back plus the count keeps them narrow. */
+  .seat--east .seat__back:not(:first-child),
+  .seat--west .seat__back:not(:first-child) {
+    display: none;
+  }
+  .turn-timer {
+    width: 72px;
+  }
+  .trick {
+    width: 170px;
+    height: 170px;
+    top: 52%;
+  }
+  .trick .card--md {
+    --w: 46px;
+    --h: 66px;
+  }
+  .trick .card--md .card__pip {
+    width: 24px;
+    height: 24px;
+  }
+  .hand {
+    justify-content: safe center;
+    gap: 0;
+    padding: 18px 4px 4px;
+    min-height: 100px;
+  }
+  .hand .card--lg {
+    --w: 54px;
+    --h: 78px;
+    margin-right: -8px;
+  }
+  .hand.hand--full .card--lg {
+    margin-right: -14px;
+  }
+  .hand .card--lg:last-child {
+    margin-right: 0;
+  }
+  .hand .card--lg .card__pip {
+    width: 28px;
+    height: 28px;
+  }
+  .action-panel {
+    padding: 8px;
+    gap: 8px;
+  }
+  .play-status__text {
+    font-size: 18px;
+  }
+  .trump-select__suits {
+    gap: 4px;
+  }
+  .btn {
+    font-size: 9px;
+    padding: 8px 10px;
+  }
+}
+
+/* In landscape phones, keep the table short so the hand stays reachable. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .table-wrap {
+    height: 78dvh;
+  }
+}

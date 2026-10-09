@@ -183,6 +183,8 @@ export interface GameView {
     leadSuit: Suit | null;
     cards: PlayedCard[];
   };
+  /** Server-determined winner of the completed trick shown during trickResolution. */
+  trickWinner: Seat | null;
   lastTrick: TrickRecord | null;
   tricksPlayed: number;
   tricksWon: [number, number];
@@ -191,8 +193,10 @@ export interface GameView {
   targetScore: number;
   roundResult: RoundResult | null;
   matchWinner: TeamId | null;
-  /** Epoch ms when the current player's turn auto-resolves, if a timer is running. */
-  turnDeadline: number | null;
+  /** Milliseconds left before the current turn auto-resolves (null = no timer). */
+  turnTimeLeftMs: number | null;
+  /** Full turn length in ms, for drawing the timer bar. */
+  turnTimeLimitMs: number | null;
   log: LogEntry[];
 }
 

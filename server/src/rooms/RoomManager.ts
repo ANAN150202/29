@@ -178,6 +178,7 @@ export class RoomManager {
       game: null,
       timers: { turn: null, trick: null, grace: new Map() },
       turnDeadline: null,
+      turnTimeLimitMs: null,
     };
     this.store.set(room);
     const { player, token } = this.addPlayer(room, socketId, nickname, 0);
@@ -514,6 +515,7 @@ export class RoomManager {
     if (room.timers.turn) clearTimeout(room.timers.turn);
     room.timers.turn = null;
     room.turnDeadline = null;
+    room.turnTimeLimitMs = null;
   }
 
   /**
@@ -535,6 +537,7 @@ export class RoomManager {
       if (limitMs <= 0) return;
       const delay = Math.max(limitMs, this.opts.roundEndAutoAdvanceMs);
       room.turnDeadline = this.opts.now() + delay;
+      room.turnTimeLimitMs = delay;
       room.timers.turn = setTimeout(() => this.autoAct(room, seq, null, { type: 'nextRound' }), delay);
       return;
     }
@@ -547,6 +550,7 @@ export class RoomManager {
     const delay = vacant ? this.opts.vacantSeatDelayMs : limitMs;
     if (delay <= 0) return;
     room.turnDeadline = vacant ? null : this.opts.now() + delay;
+    room.turnTimeLimitMs = vacant ? null : delay;
     room.timers.turn = setTimeout(() => this.autoAct(room, seq, seat, null), delay);
   }
 
@@ -646,7 +650,11 @@ export class RoomManager {
     this.transport.send(
       player.socketId,
       'game:state',
-      buildPlayerView(room.game, player.seat, { turnDeadline: room.turnDeadline }),
+      buildPlayerView(room.game, player.seat, {
+        turnDeadline: room.turnDeadline,
+        turnTimeLimitMs: room.turnTimeLimitMs,
+        now: this.opts.now(),
+      }),
     );
   }
 

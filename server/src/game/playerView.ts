@@ -6,6 +6,7 @@
  *    (or the round ends).
  */
 import type { GameView, Seat, TrumpView } from '@shared/types';
+import { determineTrickWinner } from './rules';
 import {
   canDeclarePair,
   canRevealTrump,
@@ -19,7 +20,7 @@ import type { GameState } from './state';
 export function buildPlayerView(
   state: GameState,
   viewer: Seat | null,
-  extras: { turnDeadline?: number | null } = {},
+  extras: { turnDeadline?: number | null; turnTimeLimitMs?: number | null; now?: number } = {},
 ): GameView {
   const roundOver = state.phase === 'roundEnd' || state.phase === 'matchEnd';
   const isBidder = viewer !== null && state.contract?.bidder === viewer;
@@ -33,6 +34,18 @@ export function buildPlayerView(
     hiddenFromMe: trumpChosen && !canSeeTrump,
     revealedBy: state.trumpRevealedBy,
   };
+
+  const trickWinner =
+    state.phase === 'trickResolution'
+      ? determineTrickWinner(
+          state.currentTrick.cards,
+          state.trumpRevealed ? state.trumpSuit : null,
+          state.reverseTrump,
+          state.rules.reverseTrumpScope,
+        )
+      : null;
+  const now = extras.now ?? Date.now();
+  const deadline = extras.turnDeadline ?? null;
 
   const lastTrick = state.completedTricks.length
     ? state.completedTricks[state.completedTricks.length - 1]
@@ -63,13 +76,17 @@ export function buildPlayerView(
     reverseTrumpAllowed: state.reverseTrumpAllowed,
     canRevealTrump: viewer !== null && canRevealTrump(state, viewer),
     canDeclarePair: viewer !== null && canDeclarePair(state, viewer),
-    mustPlayTrump: viewer !== null && state.mustPlayTrumpSeat === viewer,
+    mustPlayTrump:
+      viewer !== null &&
+      state.mustPlayTrumpSeat === viewer &&
+      state.hands[viewer].some((c) => c.suit === state.trumpSuit),
     pair: state.pair ? { ...state.pair } : null,
     currentTrick: {
       leader: state.currentTrick.leader,
       leadSuit: leadSuit(state),
       cards: state.currentTrick.cards.map((pc) => ({ seat: pc.seat, card: { ...pc.card } })),
     },
+    trickWinner,
     lastTrick: lastTrick ? { ...lastTrick, cards: lastTrick.cards.map((pc) => ({ ...pc })) } : null,
     tricksPlayed: state.completedTricks.length,
     tricksWon: [...state.tricksWon] as [number, number],
@@ -78,7 +95,8 @@ export function buildPlayerView(
     targetScore: state.rules.targetScore,
     roundResult: state.roundResult,
     matchWinner: state.matchWinner,
-    turnDeadline: extras.turnDeadline ?? null,
+    turnTimeLeftMs: deadline === null ? null : Math.max(0, deadline - now),
+    turnTimeLimitMs: deadline === null ? null : (extras.turnTimeLimitMs ?? null),
     log: state.log.slice(-30),
   };
 }

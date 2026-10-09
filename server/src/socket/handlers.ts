@@ -41,7 +41,7 @@ export function registerSocketHandlers(io: IO, options: HandlerOptions = {}): Ro
         io.to(socketId).emit(event, ...args);
       },
       evict: (socketId, reason) => {
-        io.to(socketId).emit('room:closed', { reason });
+        io.to(socketId).emit('room:closed', { reason, evicted: true });
       },
     },
     options,
